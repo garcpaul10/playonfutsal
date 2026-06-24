@@ -1,0 +1,9 @@
+FROM node:22-slim
+RUN npm install -g pnpm
+WORKDIR /app
+COPY . .
+RUN pnpm install
+RUN pnpm --filter @workspace/api-server run build
+WORKDIR /app/artifacts/api-server
+EXPOSE 5000
+CMD ["node", "--enable-source-maps", "./dist/index.mjs"]
