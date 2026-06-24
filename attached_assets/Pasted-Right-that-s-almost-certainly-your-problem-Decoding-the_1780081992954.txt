@@ -1,0 +1,34 @@
+Right, that's almost certainly your problem. Decoding the live video stream is the unreliable path for PDF417 specifically—the barcode is too dense for streamed frames, which are lower-res and motion-blurred. ZXing/ML Kit can nail a QR code off a video stream all day, but PDF417 needs more pixels and sharper focus than a continuous stream reliably gives you, especially on iOS Safari.
+The fix is to switch from continuous stream decoding to capture-then-decode: show the camera preview, let the user line up the card and tap a button (or auto-capture), grab one high-resolution still, then run the decoder on that single sharp image.
+The key trick is using ImageCapture.takePhoto() instead of drawing a video frame to canvas—it pulls a full-resolution photo from the camera, not the downscaled preview resolution:
+javascriptconst stream = await navigator.mediaDevices.getUserMedia({
+  video: {
+    facingMode: 'environment',
+    width: { ideal: 4096 },
+    height: { ideal: 2160 },
+    focusMode: 'continuous'
+  }
+});
+
+const track = stream.getVideoTracks()[0];
+
+// Capture a full-res still (not a video frame)
+async function captureAndDecode() {
+  const imageCapture = new ImageCapture(track);
+  const blob = await imageCapture.takePhoto();
+  const bitmap = await createImageBitmap(blob);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = bitmap.width;
+  canvas.height = bitmap.height;
+  canvas.getContext('2d').drawImage(bitmap, 0, 0);
+
+  // Feed canvas/imageData to your PDF417 decoder here
+  return canvas;
+}
+Two important caveats for your stack:
+ImageCapture isn't supported in Safari. It works in Chrome/Android but iOS Safari doesn't implement it. For iOS, the most reliable fallback is a plain file input with camera capture, which hands you a genuine full-res photo from the native camera app:
+html<input type="file" accept="image/*" capture="environment" />
+That capture attribute opens the native camera, and the native camera autofocuses on the dense barcode far better than any getUserMedia stream. Many production ID-scanning PWAs use exactly this on iOS because the WebRTC path is so unreliable there. The user snaps the photo, you get the file, decode it as an image.
+If you do stay on a canvas-from-video approach as a fallback, draw from the <video> element at its full videoWidth/videoHeight, not the displayed CSS size, or you lose resolution before the decoder ever sees it.
+So the recommendation: tap-to-capture with ImageCapture on Chrome, file input with capture on Safari, decode the still in both cases. Want me to write the full component with the Safari/Chrome branching and your AAMVA parser wired in? If you paste your current scanner component I'll refactor that directly so it drops into your existing setup.

@@ -1,0 +1,27 @@
+kind = "mobile"
+previewPath = "/playon-mobile/"
+title = "PlayOn Mobile"
+version = "1.0.0"
+id = "artifacts/playon-mobile"
+router = "expo-domain"
+
+[[integratedSkills]]
+name = "expo"
+version = "1.0.0"
+
+[[services]]
+ensurePreviewReachable = "/status"
+name = "expo"
+paths = [ "/playon-mobile/" ]
+localPort = 23845
+
+[services.development]
+run = "pnpm --filter @workspace/playon-mobile run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/playon-mobile", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/playon-mobile", "run", "serve" ]
+
+[services.env]
+PORT = "23845"
+BASE_PATH = "/playon-mobile/"

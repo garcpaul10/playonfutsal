@@ -1,0 +1,37 @@
+Fix the ID scanner failing on Safari (Mac + iOS) — it returns "No barcode found" / 0 results on every capture.
+
+CONTEXT: The decoder is NOT the problem. Console confirms ZXing WASM loads and runs fine ("ZXing WASM ready"), and the barcode is independently verified as decodable — a full-resolution photo of the KY driver's license back decodes to valid AAMVA data via the same ZXing engine. The actual bug is in engine routing: the console shows "engine: ImageCapture.takePhoto() + ZXing WASM" on Safari, which means Safari is being fed a low-quality ImageCapture frame instead of a real photo. Safari's ImageCapture.takePhoto() returns a preview-quality/poorly-focused frame that ZXing can't decode.
+
+ROOT CAUSE: The Apple-vendor guard from a previous fix isn't catching Safari, because Safari exposes `ImageCapture` in `window` and the `navigator.vendor` check is unreliable on desktop Safari. So it routes to the ImageCapture engine instead of the native file-input camera.
+
+FIX — in artifacts/playon/src/components/id-scanner-camera.tsx, in the engine selection logic (around lines 287–295):
+
+1. Add this robust Safari/iOS detector:
+
+function isAppleSafari() {
+  const ua = navigator.userAgent;
+  const isSafari = /^((?!chrome|android|crios|fxios|edg).)*safari/i.test(ua);
+  const isIOS = /iphone|ipad|ipod/i.test(ua) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  return isSafari || isIOS;
+}
+
+2. Change the engine selection order so isAppleSafari() is checked FIRST, before the "ImageCapture in window" check (this is critical — Safari exposes ImageCapture, which is the trap):
+   - if isAppleSafari() → use 'file-input' engine (Path C — native camera, full resolution)
+   - else if 'BarcodeDetector' in window → BarcodeDetector path (leave as-is)
+   - else if 'ImageCapture' in window → ImageCapture path
+   - else → 'file-input'
+
+3. Update the engine log line so it prints "engine: file input + ZXing WASM" on Safari, so we can confirm the routing changed.
+
+OUT OF SCOPE — do not touch:
+- The BarcodeDetector live-scan path (Chrome/Android) — leave alone
+- The ZXing load logic — it works, confirmed by "ZXing WASM ready"
+- The AAMVA parser or any backend logic
+- Keep the existing full-frame + center-crop decode retry and their console logs
+
+DONE LOOKS LIKE:
+- Safari Mac: console shows "engine: file input", "Take Photo" opens the system camera/file picker, a clear photo of a KY license back decodes and advances the wizard
+- Safari iOS: same — native camera opens, license decodes, wizard advances
+- Chrome desktop: unchanged, still works
+- Console still shows "full-frame: N result(s)" / "center-crop: N result(s)" so we can distinguish decode-ran-but-found-nothing from never-ran

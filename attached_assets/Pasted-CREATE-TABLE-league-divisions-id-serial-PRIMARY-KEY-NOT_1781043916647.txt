@@ -1,0 +1,52 @@
+CREATE TABLE "league_divisions" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"league_id" integer NOT NULL,
+	"name" text NOT NULL,
+	"age_groups" text[] DEFAULT '{}' NOT NULL,
+	"format" text,
+	"division_order" integer DEFAULT 0 NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+CREATE TABLE "tournament_divisions" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"tournament_id" integer NOT NULL,
+	"name" text NOT NULL,
+	"age_groups" text[] DEFAULT '{}' NOT NULL,
+	"bracket_format" text,
+	"has_group_stage" boolean,
+	"division_order" integer DEFAULT 0 NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+ALTER TABLE "dropin_court_pools" ALTER COLUMN "age_group" SET DATA TYPE text[];
+ALTER TABLE "brackets" ADD COLUMN "division_id" integer;
+ALTER TABLE "fixtures" ADD COLUMN "division_id" integer;
+ALTER TABLE "courts" ADD COLUMN "venue_id" integer;
+ALTER TABLE "check_ins" ADD COLUMN "voided_at" timestamp with time zone;
+ALTER TABLE "check_ins" ADD COLUMN "voided_by_user_id" integer;
+ALTER TABLE "teams" ADD COLUMN "division_id" integer;
+ALTER TABLE "spots" ADD COLUMN "guardian_user_id" integer;
+ALTER TABLE "standings" ADD COLUMN "division_id" integer;
+ALTER TABLE "tournament_seeds" ADD COLUMN "division_id" integer;
+ALTER TABLE "tournament_registrations" ADD COLUMN "division_id" integer;
+ALTER TABLE "league_divisions" ADD CONSTRAINT "league_divisions_league_id_fkey" FOREIGN KEY ("league_id") REFERENCES "public"."leagues"("id") ON DELETE cascade ON UPDATE no action;
+ALTER TABLE "tournament_divisions" ADD CONSTRAINT "tournament_divisions_tournament_id_fkey" FOREIGN KEY ("tournament_id") REFERENCES "public"."tournaments"("id") ON DELETE cascade ON UPDATE no action;
+ALTER TABLE "brackets" ADD CONSTRAINT "brackets_division_id_fkey" FOREIGN KEY ("division_id") REFERENCES "public"."tournament_divisions"("id") ON DELETE set null ON UPDATE no action;
+ALTER TABLE "check_ins" ADD CONSTRAINT "check_ins_voided_by_user_id_fkey" FOREIGN KEY ("voided_by_user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
+ALTER TABLE "teams" ADD CONSTRAINT "teams_division_id_fkey" FOREIGN KEY ("division_id") REFERENCES "public"."league_divisions"("id") ON DELETE set null ON UPDATE no action;
+ALTER TABLE "spots" ADD CONSTRAINT "spots_guardian_user_id_fkey" FOREIGN KEY ("guardian_user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
+ALTER TABLE "standings" ADD CONSTRAINT "standings_division_id_fkey" FOREIGN KEY ("division_id") REFERENCES "public"."league_divisions"("id") ON DELETE set null ON UPDATE no action;
+ALTER TABLE "tournament_seeds" ADD CONSTRAINT "tournament_seeds_division_id_fkey" FOREIGN KEY ("division_id") REFERENCES "public"."tournament_divisions"("id") ON DELETE set null ON UPDATE no action;
+ALTER TABLE "tournament_registrations" ADD CONSTRAINT "tournament_registrations_division_id_fkey" FOREIGN KEY ("division_id") REFERENCES "public"."tournament_divisions"("id") ON DELETE set null ON UPDATE no action;
+CREATE UNIQUE INDEX "standings_division_team_unique" ON "standings" USING btree ("division_id","team_id") WHERE (division_id IS NOT NULL);
+You may notice a temporary downtime of your deployment. What's happening?
+Migrations failed validation, please review
+Your database schema changes conflict with existing production data and could not be applied, learn more. To resolve this, you can:
+
+Copy your development database schema & data to production.
+
+Cancel deployment and retry once your schema conflicts are resolved.
+Failed to run database migration statement
+ALTER TABLE "dropin_court_pools" ALTER COLUMN "age_group" SET DATA TYPE text[];
+column "age_group" cannot be cast automatically to type text[]

@@ -1,0 +1,24 @@
+Simplify the ID scanner to use ONE capture path for all browsers: native file-input. Remove the per-browser engine detection entirely.
+
+WHY: We've tried twice to route Safari to the file-input engine via browser detection (navigator.vendor, then a userAgent isAppleSafari() check), and Safari is STILL falling through to ImageCapture.takePhoto() — the console keeps showing "engine: ImageCapture.takePhoto() + ZXing WASM" instead of "engine: file input". The detection logic is unreliable and not worth maintaining. The native file-input camera works on every browser (Chrome, Safari, iOS, iPad kiosk) and gives ZXing a full-resolution photo every time, which is exactly what it needs. For a tap-to-capture check-in flow there is no downside.
+
+FIX — in artifacts/playon/src/components/id-scanner-camera.tsx:
+
+1. Remove the engine-selection branching entirely (the isAppleSafari() check, the "ImageCapture in window" branch, the navigator.vendor logic, and the ImageCapture.takePhoto() capture path). Delete the ImageCapture code path completely.
+
+2. Make the capture mechanism a native file input for ALL browsers:
+   <input type="file" accept="image/*" capture="environment" />
+   Wire the scan button to trigger this input. On capture, read the selected file, decode it with the existing ZXing WASM + AAMVA pipeline.
+
+3. EXCEPTION — keep BarcodeDetector as an optional fast path ONLY where it exists and works (Chrome/Android live scan). If you keep it, it must be a clean separate branch: if 'BarcodeDetector' in window use live-scan, ELSE use file-input. Everything that isn't BarcodeDetector goes to file-input. No ImageCapture anywhere. If keeping BarcodeDetector adds any complexity or risk, just remove it too and make file-input universal — file-input working everywhere is the priority.
+
+4. Update the engine log line to print "engine: file input + ZXing WASM" so we can confirm the path in console.
+
+5. Keep the existing decode logic exactly as-is: ZXing WASM load, the full-frame + center-crop retry, and their console logs ("full-frame: N result(s)" / "center-crop: N result(s)"). Do NOT change the AAMVA parser or any backend.
+
+DONE LOOKS LIKE:
+- Console shows "engine: file input + ZXing WASM" on Safari Mac, Safari iOS, and the iPad kiosk
+- Tapping the scan button opens the native camera/file picker on all browsers
+- A clear photo of a KY driver's license back decodes to AAMVA data and advances the wizard
+- Console still shows "full-frame: N result(s)" / "center-crop: N result(s)" so we can tell decode-ran-but-found-nothing from never-ran
+- No "ImageCapture.takePhoto()" appears in the console on any browser

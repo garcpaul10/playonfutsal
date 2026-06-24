@@ -1,0 +1,47 @@
+import { semantic, radii } from "@workspace/brand";
+
+const colors = {
+  light: {
+    text: semantic.light.foreground,
+    tint: semantic.dark.primary,
+    background: semantic.light.background,
+    foreground: semantic.light.foreground,
+    card: semantic.light.card,
+    cardForeground: semantic.light.cardForeground,
+    primary: semantic.light.primary,
+    primaryForeground: semantic.light.primaryForeground,
+    secondary: semantic.light.secondary,
+    secondaryForeground: semantic.light.secondaryForeground,
+    muted: semantic.light.muted,
+    mutedForeground: semantic.light.mutedForeground,
+    accent: semantic.light.accent,
+    accentForeground: semantic.light.accentForeground,
+    destructive: semantic.light.destructive,
+    destructiveForeground: semantic.light.destructiveForeground,
+    border: semantic.light.border,
+    input: semantic.light.input,
+  },
+  dark: {
+    text: semantic.dark.foreground,
+    tint: semantic.dark.ring,
+    background: semantic.dark.background,
+    foreground: semantic.dark.foreground,
+    card: semantic.dark.card,
+    cardForeground: semantic.dark.cardForeground,
+    primary: semantic.dark.primary,
+    primaryForeground: semantic.dark.primaryForeground,
+    secondary: semantic.dark.secondary,
+    secondaryForeground: semantic.dark.secondaryForeground,
+    muted: semantic.dark.muted,
+    mutedForeground: semantic.dark.mutedForeground,
+    accent: semantic.dark.accent,
+    accentForeground: semantic.dark.accentForeground,
+    destructive: semantic.dark.destructive,
+    destructiveForeground: semantic.dark.destructiveForeground,
+    border: semantic.dark.border,
+    input: semantic.dark.input,
+  },
+  radius: radii.md,
+};
+
+export default colors;

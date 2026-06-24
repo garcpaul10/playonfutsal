@@ -1,0 +1,1 @@
+ALTER TABLE "session_templates" ADD COLUMN "extra_pools_config" jsonb;

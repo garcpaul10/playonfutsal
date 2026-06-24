@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "PlayOn"
+version = "1.0.0"
+id = "artifacts/playon"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19013
+
+[services.development]
+run = "pnpm --filter @workspace/playon run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/playon", "run", "build" ]
+publicDir = "artifacts/playon/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19013"
+BASE_PATH = "/"

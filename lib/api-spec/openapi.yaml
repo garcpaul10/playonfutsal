@@ -1,0 +1,3963 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: PlayOn futsal management platform API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: programs
+    description: Browse leagues, camps, drop-ins, tournaments
+  - name: leagues
+    description: League management
+  - name: camps
+    description: Camp management
+  - name: dropins
+    description: Drop-in session management
+  - name: tournaments
+    description: Tournament management
+  - name: courts
+    description: Court management
+  - name: users
+    description: User profile & RBAC
+  - name: admin
+    description: Admin dashboard & management
+  - name: registrations
+    description: Player registrations
+  - name: teams
+    description: Team management
+  - name: seasons
+    description: Season management
+
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  # ── COURTS ─────────────────────────────────────────────────────────────────
+  /courts:
+    get:
+      operationId: listCourts
+      tags: [courts]
+      summary: List all courts
+      responses:
+        "200":
+          description: List of courts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Court"
+
+  /courts/{id}:
+    get:
+      operationId: getCourt
+      tags: [courts]
+      summary: Get a court
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Court
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Court"
+        "404":
+          description: Not found
+
+  # ── SEASONS ─────────────────────────────────────────────────────────────────
+  /seasons:
+    get:
+      operationId: listSeasons
+      tags: [seasons]
+      summary: List seasons
+      parameters:
+        - name: active
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Seasons list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Season"
+    post:
+      operationId: createSeason
+      tags: [seasons]
+      summary: Create a season (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SeasonInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Season"
+
+  /seasons/{id}:
+    get:
+      operationId: getSeason
+      tags: [seasons]
+      summary: Get a season
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Season
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Season"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateSeason
+      tags: [seasons]
+      summary: Update a season (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SeasonUpdate"
+      responses:
+        "200":
+          description: Updated season
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Season"
+
+  # ── PROGRAMS (unified browse surface) ───────────────────────────────────────
+  /programs/featured:
+    get:
+      operationId: listFeaturedPrograms
+      tags: [programs]
+      summary: List featured programs for homepage
+      responses:
+        "200":
+          description: Featured programs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProgramSummary"
+
+  /programs:
+    get:
+      operationId: listPrograms
+      tags: [programs]
+      summary: Browse all programs
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [league, camp, drop_in, tournament]
+        - name: ageGroup
+          in: query
+          schema:
+            type: string
+        - name: season
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Programs list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProgramSummary"
+
+  # ── LEAGUES ──────────────────────────────────────────────────────────────────
+  /leagues:
+    get:
+      operationId: listLeagues
+      tags: [leagues]
+      summary: List leagues
+      parameters:
+        - name: seasonId
+          in: query
+          schema:
+            type: integer
+        - name: ageGroup
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [upcoming, active, completed]
+      responses:
+        "200":
+          description: Leagues
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/League"
+    post:
+      operationId: createLeague
+      tags: [leagues]
+      summary: Create a league (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LeagueInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/League"
+
+  /leagues/{id}:
+    get:
+      operationId: getLeague
+      tags: [leagues]
+      summary: Get a league
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: League
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/League"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateLeague
+      tags: [leagues]
+      summary: Update a league (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LeagueUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/League"
+    delete:
+      operationId: deleteLeague
+      tags: [leagues]
+      summary: Delete a league (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ── CAMPS ─────────────────────────────────────────────────────────────────
+  /camps:
+    get:
+      operationId: listCamps
+      tags: [camps]
+      summary: List camps
+      parameters:
+        - name: ageGroup
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [upcoming, active, completed]
+      responses:
+        "200":
+          description: Camps
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Camp"
+    post:
+      operationId: createCamp
+      tags: [camps]
+      summary: Create a camp (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CampInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Camp"
+
+  /camps/{id}:
+    get:
+      operationId: getCamp
+      tags: [camps]
+      summary: Get a camp
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Camp
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Camp"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateCamp
+      tags: [camps]
+      summary: Update a camp (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CampUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Camp"
+    delete:
+      operationId: deleteCamp
+      tags: [camps]
+      summary: Delete a camp (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ── DROP-IN SESSION TEMPLATES ─────────────────────────────────────────────────
+  /dropins/templates:
+    get:
+      operationId: listSessionTemplates
+      tags: [dropins]
+      summary: List session templates (admin)
+      responses:
+        "200":
+          description: Session templates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SessionTemplate"
+    post:
+      operationId: createSessionTemplate
+      tags: [dropins]
+      summary: Create a session template (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SessionTemplateInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionTemplate"
+
+  /dropins/templates/{id}:
+    get:
+      operationId: getSessionTemplate
+      tags: [dropins]
+      summary: Get a session template
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Session template
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionTemplate"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateSessionTemplate
+      tags: [dropins]
+      summary: Update a session template (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SessionTemplateUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionTemplate"
+    delete:
+      operationId: deleteSessionTemplate
+      tags: [dropins]
+      summary: Delete a session template (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /dropins/templates/{id}/generate:
+    post:
+      operationId: generateSessionsFromTemplate
+      tags: [dropins]
+      summary: Generate drop-in sessions from a template (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateSessionsInput"
+      responses:
+        "201":
+          description: Sessions generated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [sessions]
+                properties:
+                  sessions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Dropin"
+
+  # ── DROP-INS ─────────────────────────────────────────────────────────────────
+  /dropins:
+    get:
+      operationId: listDropins
+      tags: [dropins]
+      summary: List drop-in sessions
+      parameters:
+        - name: courtId
+          in: query
+          schema:
+            type: integer
+        - name: ageGroup
+          in: query
+          schema:
+            type: string
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Drop-in sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Dropin"
+    post:
+      operationId: createDropin
+      tags: [dropins]
+      summary: Create a drop-in session (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DropinInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Dropin"
+
+  /dropins/{id}:
+    get:
+      operationId: getDropin
+      tags: [dropins]
+      summary: Get a drop-in session
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Drop-in session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Dropin"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateDropin
+      tags: [dropins]
+      summary: Update a drop-in session (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DropinUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Dropin"
+    delete:
+      operationId: deleteDropin
+      tags: [dropins]
+      summary: Delete a drop-in session (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ── DROP-IN COURT POOLS ───────────────────────────────────────────────────────
+  /dropins/{id}/pools:
+    get:
+      operationId: listDropinCourtPools
+      tags: [dropins]
+      summary: List court pools for a drop-in session
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Court pools with live spot counts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DropinCourtPool"
+    post:
+      operationId: addDropinCourtPool
+      tags: [dropins]
+      summary: Add a court pool to a drop-in session (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DropinCourtPoolInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DropinCourtPool"
+
+  /dropins/{id}/pools/{poolId}:
+    patch:
+      operationId: updateDropinCourtPool
+      tags: [dropins]
+      summary: Update a court pool cap or close it (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: poolId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DropinCourtPoolUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DropinCourtPool"
+    delete:
+      operationId: removeDropinCourtPool
+      tags: [dropins]
+      summary: Remove a court pool from a drop-in session (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: poolId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ── DROP-IN RSVP / SPOTS ──────────────────────────────────────────────────────
+  /dropins/pools/{poolId}/rsvp:
+    post:
+      operationId: rsvpDropinPool
+      tags: [dropins]
+      summary: Claim a spot or join waitlist for a court pool (auth)
+      parameters:
+        - name: poolId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "201":
+          description: Spot or waitlist entry created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DropinSpot"
+        "400":
+          description: Already registered or pool closed
+        "409":
+          description: Already has an active spot in this pool
+
+  /dropins/spots/{spotId}:
+    delete:
+      operationId: cancelDropinSpot
+      tags: [dropins]
+      summary: Cancel a drop-in spot (own or admin)
+      parameters:
+        - name: spotId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+      responses:
+        "200":
+          description: Spot cancelled and next waitlisted player (if any) promoted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [spot]
+                properties:
+                  spot:
+                    $ref: "#/components/schemas/DropinSpot"
+                  promoted:
+                    $ref: "#/components/schemas/DropinSpot"
+
+  /dropins/spots/{spotId}/payment:
+    patch:
+      operationId: updateDropinSpotPayment
+      tags: [dropins]
+      summary: Admin mark payment status on a spot
+      parameters:
+        - name: spotId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [paymentStatus]
+              properties:
+                paymentStatus:
+                  type: string
+                  enum: [unpaid, paid_inapp, paid_external, refunded, waived]
+                notes:
+                  type: string
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DropinSpot"
+
+  /dropins/spots/{spotId}/noshow:
+    patch:
+      operationId: markDropinNoShow
+      tags: [dropins]
+      summary: Admin mark player as no-show and optionally promote next waitlisted
+      parameters:
+        - name: spotId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                promote:
+                  type: boolean
+                  description: If true, auto-promote next waitlisted player
+      responses:
+        "200":
+          description: No-show recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [spot]
+                properties:
+                  spot:
+                    $ref: "#/components/schemas/DropinSpot"
+                  promoted:
+                    $ref: "#/components/schemas/DropinSpot"
+
+  /dropins/{id}/roster:
+    get:
+      operationId: getDropinRoster
+      tags: [dropins]
+      summary: Get full roster for a drop-in session (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Session roster grouped by pool
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DropinRoster"
+
+  /dropins/{id}/spots:
+    post:
+      operationId: adminAddDropinSpot
+      tags: [dropins]
+      summary: Admin manually add a player to a pool (bypasses cap/waitlist)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [poolId, userId]
+              properties:
+                poolId:
+                  type: integer
+                userId:
+                  type: integer
+                waitlisted:
+                  type: boolean
+                paymentStatus:
+                  type: string
+                  enum: [unpaid, paid_inapp, paid_external, refunded, waived]
+                notes:
+                  type: string
+      responses:
+        "201":
+          description: Spot created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DropinSpot"
+
+  # ── DROP-IN CHECK-IN ──────────────────────────────────────────────────────────
+  /dropins/{id}/checkin:
+    get:
+      operationId: getDropinCheckinView
+      tags: [dropins]
+      summary: Get the day-of check-in view for a session (admin/staff)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Check-in view with pools, spots, check-in state, and waiver flags
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DropinCheckinView"
+    post:
+      operationId: checkinDropinPlayer
+      tags: [dropins]
+      summary: Check in a player (QR scan or manual search) (admin/staff)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DropinCheckinInput"
+      responses:
+        "200":
+          description: Check-in recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DropinCheckinResult"
+        "404":
+          description: Player not found or not registered
+
+  # ── TOURNAMENTS ───────────────────────────────────────────────────────────────
+  /tournaments:
+    get:
+      operationId: listTournaments
+      tags: [tournaments]
+      summary: List tournaments
+      parameters:
+        - name: ageGroup
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [upcoming, active, completed]
+      responses:
+        "200":
+          description: Tournaments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Tournament"
+    post:
+      operationId: createTournament
+      tags: [tournaments]
+      summary: Create a tournament (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TournamentInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tournament"
+
+  /tournaments/{id}:
+    get:
+      operationId: getTournament
+      tags: [tournaments]
+      summary: Get a tournament
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Tournament
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tournament"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateTournament
+      tags: [tournaments]
+      summary: Update a tournament (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TournamentUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tournament"
+    delete:
+      operationId: deleteTournament
+      tags: [tournaments]
+      summary: Delete a tournament (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ── REGISTRATIONS ────────────────────────────────────────────────────────────
+  /registrations:
+    get:
+      operationId: listRegistrations
+      tags: [registrations]
+      summary: List registrations (admin or own)
+      parameters:
+        - name: userId
+          in: query
+          schema:
+            type: string
+        - name: programType
+          in: query
+          schema:
+            type: string
+            enum: [league, camp, drop_in, tournament]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, confirmed, cancelled, waitlisted]
+      responses:
+        "200":
+          description: Registrations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Registration"
+    post:
+      operationId: createRegistration
+      tags: [registrations]
+      summary: Register for a program
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegistrationInput"
+      responses:
+        "201":
+          description: Registration created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Registration"
+
+  /registrations/{id}:
+    get:
+      operationId: getRegistration
+      tags: [registrations]
+      summary: Get a registration
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Registration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Registration"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateRegistration
+      tags: [registrations]
+      summary: Update a registration status (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegistrationUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Registration"
+    delete:
+      operationId: cancelRegistration
+      tags: [registrations]
+      summary: Cancel a registration
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Cancelled
+
+  # ── TEAMS ────────────────────────────────────────────────────────────────────
+  /teams:
+    get:
+      operationId: listTeams
+      tags: [teams]
+      summary: List teams
+      parameters:
+        - name: leagueId
+          in: query
+          schema:
+            type: integer
+        - name: tournamentId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Teams
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Team"
+    post:
+      operationId: createTeam
+      tags: [teams]
+      summary: Create a team
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TeamInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Team"
+
+  /teams/{id}:
+    get:
+      operationId: getTeam
+      tags: [teams]
+      summary: Get a team
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Team
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Team"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateTeam
+      tags: [teams]
+      summary: Update a team
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TeamUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Team"
+
+  # ── USER PROFILE ─────────────────────────────────────────────────────────────
+  /me:
+    get:
+      operationId: getMyProfile
+      tags: [users]
+      summary: Get current user profile
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "401":
+          description: Unauthorized
+    patch:
+      operationId: updateMyProfile
+      tags: [users]
+      summary: Update current user profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserProfileUpdate"
+      responses:
+        "200":
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+
+  /me/registrations:
+    get:
+      operationId: getMyRegistrations
+      tags: [users]
+      summary: Get current user's registrations
+      responses:
+        "200":
+          description: Registrations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Registration"
+
+  /users:
+    get:
+      operationId: listUsers
+      tags: [users]
+      summary: List users (admin)
+      parameters:
+        - name: role
+          in: query
+          schema:
+            type: string
+            enum: [player, parent, ref, coach, staff, admin]
+        - name: q
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserProfile"
+
+  /users/{id}:
+    get:
+      operationId: getUser
+      tags: [users]
+      summary: Get a user (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateUser
+      tags: [users]
+      summary: Update a user (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserProfileUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+
+  # ── ADMIN ─────────────────────────────────────────────────────────────────────
+  /admin/stats:
+    get:
+      operationId: getAdminStats
+      tags: [admin]
+      summary: Admin dashboard statistics
+      responses:
+        "200":
+          description: Stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStats"
+
+  /admin/activity:
+    get:
+      operationId: listAdminActivity
+      tags: [admin]
+      summary: Recent activity feed (admin)
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Activity items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityItem"
+
+  # ── PRICING RULES ─────────────────────────────────────────────────────────
+  /admin/pricing-rules:
+    get:
+      operationId: listPricingRules
+      tags: [admin]
+      summary: List pricing rules (admin)
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+            enum: [drop_in, camp, league, tournament]
+        - name: latestOnly
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Pricing rules
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PricingRule"
+    post:
+      operationId: createPricingRule
+      tags: [admin]
+      summary: Create a pricing rule (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PricingRuleInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PricingRule"
+
+  /admin/pricing-rules/{id}:
+    get:
+      operationId: getPricingRule
+      tags: [admin]
+      summary: Get a pricing rule (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Pricing rule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PricingRule"
+        "404":
+          description: Not found
+    patch:
+      operationId: updatePricingRule
+      tags: [admin]
+      summary: Update a pricing rule — creates a new version (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PricingRuleUpdate"
+      responses:
+        "200":
+          description: New version of the pricing rule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PricingRule"
+        "404":
+          description: Not found
+    delete:
+      operationId: deletePricingRule
+      tags: [admin]
+      summary: Deactivate a pricing rule (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deactivated
+
+  # ── FACILITY SPLIT RULES ──────────────────────────────────────────────────
+  /admin/facility-split-rules:
+    get:
+      operationId: listFacilitySplitRules
+      tags: [admin]
+      summary: List facility split rules (admin)
+      parameters:
+        - name: venueId
+          in: query
+          schema:
+            type: integer
+        - name: latestOnly
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Split rules
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FacilitySplitRule"
+    post:
+      operationId: createFacilitySplitRule
+      tags: [admin]
+      summary: Create a facility split rule (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FacilitySplitRuleInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FacilitySplitRule"
+
+  /admin/facility-split-rules/{id}:
+    get:
+      operationId: getFacilitySplitRule
+      tags: [admin]
+      summary: Get a facility split rule (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Split rule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FacilitySplitRule"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateFacilitySplitRule
+      tags: [admin]
+      summary: Update a facility split rule — creates a new version (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FacilitySplitRuleUpdate"
+      responses:
+        "200":
+          description: New version of the split rule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FacilitySplitRule"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteFacilitySplitRule
+      tags: [admin]
+      summary: Deactivate a facility split rule (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deactivated
+
+  # ── SERVICE FEE CONFIG ────────────────────────────────────────────────────
+  /admin/service-fee-config:
+    get:
+      operationId: getServiceFeeConfig
+      tags: [admin]
+      summary: Get the active service fee configuration (admin)
+      responses:
+        "200":
+          description: Service fee config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceFeeConfig"
+    patch:
+      operationId: updateServiceFeeConfig
+      tags: [admin]
+      summary: Update the service fee configuration (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ServiceFeeConfigUpdate"
+      responses:
+        "200":
+          description: Updated service fee config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceFeeConfig"
+
+  # ── REVENUE RECORDS ───────────────────────────────────────────────────────
+  /admin/revenue:
+    get:
+      operationId: listRevenueRecords
+      tags: [admin]
+      summary: List revenue records with computed splits (admin)
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+            enum: [drop_in, camp, league, tournament]
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: Revenue records
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RevenueOverview"
+
+  # ── AUDIT LOG ─────────────────────────────────────────────────────────────
+  /admin/audit-log:
+    get:
+      operationId: listAuditLog
+      tags: [admin]
+      summary: Audit log feed (super-admin)
+      parameters:
+        - name: entityType
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: Audit log entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AuditLogEntry"
+
+  # ── Memberships ────────────────────────────────────────────────────────────
+
+  /membership-plans:
+    get:
+      operationId: listMembershipPlans
+      tags: [memberships]
+      summary: List active membership plans
+      description: Returns all active plans visible to the public
+      responses:
+        "200":
+          description: Active membership plans
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MembershipPlan"
+
+  /memberships/my:
+    get:
+      operationId: getMyMembership
+      tags: [memberships]
+      summary: Get caller's active membership
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Active membership with embedded plan, or null
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    description: Active membership with embedded plan details
+                    allOf:
+                      - $ref: "#/components/schemas/UserMembership"
+                      - type: object
+                        properties:
+                          plan:
+                            $ref: "#/components/schemas/MembershipPlan"
+                  - type: "null"
+
+  /memberships/subscribe:
+    post:
+      operationId: subscribeMembership
+      tags: [memberships]
+      summary: Subscribe to a membership plan
+      description: >
+        Creates a Stripe Checkout Session (subscription mode) for paid plans.
+        Free plans (price = $0, no Stripe Price ID) are granted immediately.
+        Paid plans without a linked Stripe Price ID return 400 — they must be
+        configured via the admin plan creation endpoint before users can enroll.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [planId]
+              properties:
+                planId:
+                  type: integer
+                successUrl:
+                  type: string
+                cancelUrl:
+                  type: string
+      responses:
+        "200":
+          description: Stripe checkout URL or created membership
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  checkoutUrl:
+                    type: ["string", "null"]
+        "201":
+          description: Manual membership created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserMembership"
+        "400":
+          description: Plan not configured for payment (paid plan missing Stripe Price ID)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        "409":
+          description: User already has an active membership
+
+  /memberships/cancel:
+    post:
+      operationId: cancelMembership
+      tags: [memberships]
+      summary: Cancel caller's active membership
+      description: For Stripe subscriptions sets cancel_at_period_end and relies on webhook for final status update. For manual memberships cancels immediately.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Cancellation confirmed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+
+  /admin/membership-plans:
+    get:
+      operationId: adminListMembershipPlans
+      tags: [admin, memberships]
+      summary: List all membership plans (admin)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: All plans including inactive
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MembershipPlan"
+    post:
+      operationId: adminCreateMembershipPlan
+      tags: [admin, memberships]
+      summary: Create a membership plan (super-admin)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, price]
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                price:
+                  type: string
+                billingCycle:
+                  type: string
+                trialDays:
+                  type: integer
+                features:
+                  type: array
+                  items:
+                    type: string
+                discountPercent:
+                  type: string
+                isActive:
+                  type: boolean
+                stripePriceId:
+                  type: string
+                stripeProductId:
+                  type: string
+                createStripeProduct:
+                  type: boolean
+      responses:
+        "201":
+          description: Created plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MembershipPlan"
+
+  /admin/membership-plans/{id}:
+    patch:
+      operationId: adminUpdateMembershipPlan
+      tags: [admin, memberships]
+      summary: Update a membership plan (super-admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                price:
+                  type: string
+                billingCycle:
+                  type: string
+                isActive:
+                  type: boolean
+                stripePriceId:
+                  type: string
+                stripeProductId:
+                  type: string
+      responses:
+        "200":
+          description: Updated plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MembershipPlan"
+
+  /admin/memberships:
+    get:
+      operationId: adminListMemberships
+      tags: [admin, memberships]
+      summary: List all user memberships (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, cancelled, past_due]
+        - name: planId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: User memberships with user and plan details
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserMembership"
+    post:
+      operationId: adminGrantMembership
+      tags: [admin, memberships]
+      summary: Manually grant a membership (admin)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, planId]
+              properties:
+                userId:
+                  type: integer
+                planId:
+                  type: integer
+                startDate:
+                  type: string
+                  format: date
+                endDate:
+                  type: string
+                  format: date
+                notes:
+                  type: string
+      responses:
+        "201":
+          description: Granted membership
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserMembership"
+
+  /admin/memberships/{id}:
+    patch:
+      operationId: adminOverrideMembership
+      tags: [admin, memberships]
+      summary: Override a membership's status or dates (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                endDate:
+                  type: string
+                  format: date
+                renewsAt:
+                  type: string
+                  format: date
+                notes:
+                  type: string
+      responses:
+        "200":
+          description: Updated membership
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserMembership"
+    delete:
+      operationId: adminCancelMembership
+      tags: [admin, memberships]
+      summary: Cancel a user's membership (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Membership cancelled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+
+  # ── REFERRALS ──────────────────────────────────────────────────────────────
+  /referrals/config:
+    get:
+      operationId: getReferralConfig
+      tags: [referrals]
+      summary: Get referral program configuration (public)
+      responses:
+        "200":
+          description: Referral config
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rewardCreditCents:
+                    type: integer
+                  isEnabled:
+                    type: boolean
+
+  /referrals/generate:
+    post:
+      operationId: generateReferralCode
+      tags: [referrals]
+      summary: Generate (201) or retrieve (200) the caller's referral code. Blocked when program is disabled.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Existing pending referral code returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Referral"
+        "201":
+          description: New referral code generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Referral"
+        "400":
+          description: Referral program is currently disabled
+
+  /referrals/my:
+    get:
+      operationId: getMyReferrals
+      tags: [referrals]
+      summary: Get the caller's referral history and active code
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Referral hub data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: ["string", "null"]
+                  link:
+                    type: ["string", "null"]
+                  rewardCreditCents:
+                    type: integer
+                  isEnabled:
+                    type: boolean
+                  completedCount:
+                    type: integer
+                  pendingCount:
+                    type: integer
+                  referrals:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Referral"
+
+  /referrals/claim:
+    post:
+      operationId: claimReferralCode
+      tags: [referrals]
+      summary: Claim a referral code (one per user, new signups only)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code:
+                  type: string
+      responses:
+        "200":
+          description: Code claimed, reward issued to referrer
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  rewardCreditCents:
+                    type: integer
+        "400":
+          description: Invalid request or program disabled
+        "404":
+          description: Code not found
+        "409":
+          description: Code already claimed or user already has a referral attribution
+
+  /admin/referrals:
+    get:
+      operationId: adminListReferrals
+      tags: [admin]
+      summary: List all referral records (admin)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: All referrals with referrer email
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Referral"
+
+  /admin/referrals/config:
+    get:
+      operationId: adminGetReferralConfig
+      tags: [admin]
+      summary: Get referral config (admin)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Referral config
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rewardCreditCents:
+                    type: integer
+                  isEnabled:
+                    type: boolean
+    patch:
+      operationId: adminUpdateReferralConfig
+      tags: [admin]
+      summary: Update referral config — reward amount and enabled toggle (super-admin)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                rewardCreditCents:
+                  type: integer
+                  minimum: 0
+                isEnabled:
+                  type: boolean
+      responses:
+        "200":
+          description: Updated config
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rewardCreditCents:
+                    type: integer
+                  isEnabled:
+                    type: boolean
+
+  # ── ADMIN REPORTS ──────────────────────────────────────────────────────────
+  /admin/reports/participation:
+    get:
+      operationId: adminReportsParticipation
+      tags: [admin]
+      summary: Participation report — registrations by month, type, and age group (admin)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Participation breakdown
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  byType:
+                    type: object
+                    additionalProperties:
+                      type: integer
+                  byAgeGroup:
+                    type: object
+                    additionalProperties:
+                      type: integer
+                  monthlyData:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        month:
+                          type: string
+                        total:
+                          type: integer
+                        league:
+                          type: integer
+                        camp:
+                          type: integer
+                        drop_in:
+                          type: integer
+                        tournament:
+                          type: integer
+
+  /admin/reports/retention:
+    get:
+      operationId: adminReportsRetention
+      tags: [admin]
+      summary: Retention report — new vs returning players per season (admin)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Retention data by season
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  seasons:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        seasonId:
+                          type: integer
+                        seasonName:
+                          type: string
+                        startDate:
+                          type: ["string", "null"]
+                        endDate:
+                          type: ["string", "null"]
+                        totalPlayers:
+                          type: integer
+                        newPlayers:
+                          type: integer
+                        returningPlayers:
+                          type: integer
+                        retentionRate:
+                          type: integer
+                  summary:
+                    type: object
+                    properties:
+                      totalRegisteredUsers:
+                        type: integer
+                      totalActivePlayers:
+                        type: integer
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+
+    Court:
+      type: object
+      required: [id, name, type, availableForScheduling]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        type:
+          type: string
+          enum: [full, small_sided]
+        description:
+          type: ["string", "null"]
+        availableForScheduling:
+          type: boolean
+        maxPlayers:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Season:
+      type: object
+      required: [id, name, startDate, endDate, isActive]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    SeasonInput:
+      type: object
+      required: [name, startDate, endDate]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        isActive:
+          type: boolean
+
+    SeasonUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        isActive:
+          type: boolean
+
+    ProgramSummary:
+      type: object
+      required: [id, type, name, ageGroup, status, price, spotsAvailable, spotsTotal]
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+          enum: [league, camp, drop_in, tournament]
+        name:
+          type: string
+        ageGroup:
+          type: string
+        status:
+          type: string
+          enum: [upcoming, active, completed]
+        price:
+          type: number
+        spotsAvailable:
+          type: integer
+        spotsTotal:
+          type: integer
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: ["string", "null"]
+          format: date
+        imageUrl:
+          type: ["string", "null"]
+        description:
+          type: ["string", "null"]
+        gender:
+          type: ["string", "null"]
+        startsAt:
+          type: ["string", "null"]
+          format: date-time
+          description: ISO 8601 timestamp of the earliest pool/session start; present on drop-in and drop-in template cards
+        poolLatestStartsAt:
+          type: ["string", "null"]
+          format: date-time
+          description: ISO 8601 timestamp of the latest pool start (for time-range display); present on drop-in cards with multiple pools
+        isTemplate:
+          type: boolean
+        occurrenceDate:
+          type: string
+          description: Next occurrence date (YYYY-MM-DD) for drop-in template cards
+
+    League:
+      type: object
+      required: [id, name, ageGroup, format, courtId, seasonId, status, registrationPrice, maxTeams, registrationOpen]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        ageGroup:
+          type: string
+          enum: [u8, u9, u10, u11, u12, u13, u14, u15, u16, u17, u18, adult]
+        format:
+          type: string
+          enum: [5v5, 4v4, 3v3]
+        courtId:
+          type: integer
+        seasonId:
+          type: integer
+        status:
+          type: string
+          enum: [upcoming, active, completed]
+        registrationPrice:
+          type: number
+        maxTeams:
+          type: integer
+        teamsRegistered:
+          type: integer
+        registrationOpen:
+          type: boolean
+        registrationDeadline:
+          type: ["string", "null"]
+          format: date-time
+        startDate:
+          type: ["string", "null"]
+          format: date
+        endDate:
+          type: ["string", "null"]
+          format: date
+        description:
+          type: ["string", "null"]
+        imageUrl:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    LeagueInput:
+      type: object
+      required: [name, ageGroup, format, courtId, seasonId, registrationPrice, maxTeams]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        ageGroup:
+          type: string
+          enum: [u8, u9, u10, u11, u12, u13, u14, u15, u16, u17, u18, adult]
+        format:
+          type: string
+          enum: [5v5, 4v4, 3v3]
+        courtId:
+          type: integer
+        seasonId:
+          type: integer
+        registrationPrice:
+          type: number
+        maxTeams:
+          type: integer
+        registrationOpen:
+          type: boolean
+        registrationDeadline:
+          type: ["string", "null"]
+          format: date-time
+        startDate:
+          type: ["string", "null"]
+          format: date
+        endDate:
+          type: ["string", "null"]
+          format: date
+        description:
+          type: ["string", "null"]
+        imageUrl:
+          type: ["string", "null"]
+
+    LeagueUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        ageGroup:
+          type: string
+          enum: [u8, u9, u10, u11, u12, u13, u14, u15, u16, u17, u18, adult]
+        format:
+          type: string
+          enum: [5v5, 4v4, 3v3]
+        courtId:
+          type: integer
+        seasonId:
+          type: integer
+        registrationPrice:
+          type: number
+        maxTeams:
+          type: integer
+        registrationOpen:
+          type: boolean
+        registrationDeadline:
+          type: ["string", "null"]
+          format: date-time
+        startDate:
+          type: ["string", "null"]
+          format: date
+        endDate:
+          type: ["string", "null"]
+          format: date
+        description:
+          type: ["string", "null"]
+        imageUrl:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [upcoming, active, completed]
+
+    Camp:
+      type: object
+      required: [id, name, ageGroup, courtId, status, price, maxParticipants, registrationOpen]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        ageGroup:
+          type: string
+          enum: [u8, u9, u10, u11, u12, u13, u14, u15, u16, u17, u18, adult]
+        courtId:
+          type: integer
+        status:
+          type: string
+          enum: [upcoming, active, completed]
+        price:
+          type: number
+        maxParticipants:
+          type: integer
+        participantsRegistered:
+          type: integer
+        registrationOpen:
+          type: boolean
+        registrationDeadline:
+          type: ["string", "null"]
+          format: date-time
+        startDate:
+          type: ["string", "null"]
+          format: date
+        endDate:
+          type: ["string", "null"]
+          format: date
+        description:
+          type: ["string", "null"]
+        imageUrl:
+          type: ["string", "null"]
+        coachName:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CampInput:
+      type: object
+      required: [name, ageGroup, courtId, price, maxParticipants]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        ageGroup:
+          type: string
+          enum: [u8, u9, u10, u11, u12, u13, u14, u15, u16, u17, u18, adult]
+        courtId:
+          type: integer
+        price:
+          type: number
+        maxParticipants:
+          type: integer
+        registrationOpen:
+          type: boolean
+        registrationDeadline:
+          type: ["string", "null"]
+          format: date-time
+        startDate:
+          type: ["string", "null"]
+          format: date
+        endDate:
+          type: ["string", "null"]
+          format: date
+        description:
+          type: ["string", "null"]
+        imageUrl:
+          type: ["string", "null"]
+        coachName:
+          type: ["string", "null"]
+
+    CampUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        ageGroup:
+          type: string
+          enum: [u8, u9, u10, u11, u12, u13, u14, u15, u16, u17, u18, adult]
+        courtId:
+          type: integer
+        price:
+          type: number
+        maxParticipants:
+          type: integer
+        registrationOpen:
+          type: boolean
+        registrationDeadline:
+          type: ["string", "null"]
+          format: date-time
+        startDate:
+          type: ["string", "null"]
+          format: date
+        endDate:
+          type: ["string", "null"]
+          format: date
+        description:
+          type: ["string", "null"]
+        imageUrl:
+          type: ["string", "null"]
+        coachName:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [upcoming, active, completed]
+
+    # ── Session Templates ─────────────────────────────────────────────────────
+    SessionTemplate:
+      type: object
+      required: [id, name, dayOfWeek, startTime, durationMinutes, ageGroup, skillLevel, courtId, defaultCap, cancellationWindowMinutes, isActive, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        dayOfWeek:
+          type: integer
+          description: 0=Sun … 6=Sat
+        startTime:
+          type: string
+          description: "HH:MM 24-hour"
+        durationMinutes:
+          type: integer
+        ageGroup:
+          type: string
+          enum: [u8, u9, u10, u11, u12, u13, u14, u15, u16, u17, u18, adult]
+        skillLevel:
+          type: string
+          enum: [all, beginner, intermediate, advanced]
+        courtId:
+          type: integer
+        defaultCap:
+          type: integer
+        cancellationWindowMinutes:
+          type: integer
+        description:
+          type: ["string", "null"]
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    SessionTemplateInput:
+      type: object
+      required: [name, dayOfWeek, startTime, durationMinutes, ageGroup, courtId, defaultCap]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        dayOfWeek:
+          type: integer
+          minimum: 0
+          maximum: 6
+        startTime:
+          type: string
+        durationMinutes:
+          type: integer
+        ageGroup:
+          type: string
+          enum: [u8, u9, u10, u11, u12, u13, u14, u15, u16, u17, u18, adult]
+        skillLevel:
+          type: string
+          enum: [all, beginner, intermediate, advanced]
+        courtId:
+          type: integer
+        defaultCap:
+          type: integer
+        cancellationWindowMinutes:
+          type: integer
+        description:
+          type: ["string", "null"]
+        isActive:
+          type: boolean
+
+    SessionTemplateUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        dayOfWeek:
+          type: integer
+          minimum: 0
+          maximum: 6
+        startTime:
+          type: string
+        durationMinutes:
+          type: integer
+        ageGroup:
+          type: string
+          enum: [u8, u9, u10, u11, u12, u13, u14, u15, u16, u17, u18, adult]
+        skillLevel:
+          type: string
+          enum: [all, beginner, intermediate, advanced]
+        courtId:
+          type: integer
+        defaultCap:
+          type: integer
+        cancellationWindowMinutes:
+          type: integer
+        description:
+          type: ["string", "null"]
+        isActive:
+          type: boolean
+
+    GenerateSessionsInput:
+      type: object
+      required: [dates]
+      properties:
+        dates:
+          type: array
+          items:
+            type: string
+            format: date
+          description: ISO dates (YYYY-MM-DD) of Fridays to generate sessions for
+        price:
+          type: number
+          description: Override price; defaults to drop-in pricing rule base price
+        registrationOpen:
+          type: boolean
+
+    # ── Drop-in Court Pools ───────────────────────────────────────────────────
+    DropinCourtPool:
+      type: object
+      required: [id, dropinId, courtId, ageGroup, skillLevel, cap, isClosed, spotsTaken, waitlistCount, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        dropinId:
+          type: integer
+        courtId:
+          type: integer
+        ageGroup:
+          type: string
+          enum: [u8, u9, u10, u11, u12, u13, u14, u15, u16, u17, u18, adult]
+        skillLevel:
+          type: string
+          enum: [all, beginner, intermediate, advanced]
+        cap:
+          type: integer
+        spotsTaken:
+          type: integer
+          description: Live count of confirmed (non-waitlisted, non-cancelled) spots
+        waitlistCount:
+          type: integer
+          description: Live count of waitlisted spots
+        isClosed:
+          type: boolean
+        templateId:
+          type: ["integer", "null"]
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    DropinCourtPoolInput:
+      type: object
+      required: [courtId, ageGroup]
+      properties:
+        courtId:
+          type: integer
+        ageGroup:
+          type: string
+          enum: [u8, u9, u10, u11, u12, u13, u14, u15, u16, u17, u18, adult]
+        skillLevel:
+          type: string
+          enum: [all, beginner, intermediate, advanced]
+        cap:
+          type: integer
+        notes:
+          type: ["string", "null"]
+
+    DropinCourtPoolUpdate:
+      type: object
+      properties:
+        cap:
+          type: integer
+        isClosed:
+          type: boolean
+        ageGroup:
+          type: string
+          enum: [u8, u9, u10, u11, u12, u13, u14, u15, u16, u17, u18, adult]
+        skillLevel:
+          type: string
+          enum: [all, beginner, intermediate, advanced]
+        notes:
+          type: ["string", "null"]
+
+    # ── Drop-in Spots ─────────────────────────────────────────────────────────
+    DropinSpot:
+      type: object
+      required: [id, entityType, entityId, poolId, status, paymentStatus, waitlisted, noShow, createdAt]
+      properties:
+        id:
+          type: integer
+        entityType:
+          type: string
+        entityId:
+          type: integer
+        poolId:
+          type: ["integer", "null"]
+        userId:
+          type: ["integer", "null"]
+        userFirstName:
+          type: ["string", "null"]
+        userLastName:
+          type: ["string", "null"]
+        userEmail:
+          type: ["string", "null"]
+        userQrCode:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [reserved, cancelled, promoted]
+        paymentStatus:
+          type: string
+          enum: [unpaid, paid_inapp, paid_external, refunded, waived]
+        waitlisted:
+          type: boolean
+        waitlistPosition:
+          type: ["integer", "null"]
+        noShow:
+          type: boolean
+        promotedFromWaitlist:
+          type: boolean
+        checkedIn:
+          type: boolean
+        checkedInAt:
+          type: ["string", "null"]
+          format: date-time
+        checkinMethod:
+          type: ["string", "null"]
+        waiverSigned:
+          type: boolean
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    # ── Drop-in Roster ────────────────────────────────────────────────────────
+    DropinRoster:
+      type: object
+      required: [dropinId, pools]
+      properties:
+        dropinId:
+          type: integer
+        pools:
+          type: array
+          items:
+            type: object
+            required: [pool, spots]
+            properties:
+              pool:
+                $ref: "#/components/schemas/DropinCourtPool"
+              spots:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DropinSpot"
+
+    # ── Drop-in Check-in ─────────────────────────────────────────────────────
+    DropinCheckinView:
+      type: object
+      required: [dropin, pools]
+      properties:
+        dropin:
+          $ref: "#/components/schemas/Dropin"
+        pools:
+          type: array
+          items:
+            type: object
+            required: [pool, spots]
+            properties:
+              pool:
+                $ref: "#/components/schemas/DropinCourtPool"
+              spots:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DropinSpot"
+
+    DropinCheckinInput:
+      type: object
+      properties:
+        qrCode:
+          type: string
+          description: QR code value from player's profile
+        userId:
+          type: integer
+          description: DB user ID (manual fallback)
+        poolId:
+          type: integer
+          description: If known, which pool to check into
+        method:
+          type: string
+          enum: [qr, manual]
+
+    DropinCheckinResult:
+      type: object
+      required: [spot, checkIn]
+      properties:
+        spot:
+          $ref: "#/components/schemas/DropinSpot"
+        checkIn:
+          type: object
+          required: [id, method, checkedInAt]
+          properties:
+            id:
+              type: integer
+            method:
+              type: string
+            checkedInAt:
+              type: string
+              format: date-time
+
+    Dropin:
+      type: object
+      required: [id, name, ageGroup, courtId, startsAt, durationMinutes, price, maxPlayers, status, registrationOpen]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        ageGroup:
+          type: string
+          enum: [u8, u9, u10, u11, u12, u13, u14, u15, u16, u17, u18, adult]
+        courtId:
+          type: integer
+        startsAt:
+          type: string
+          format: date-time
+        durationMinutes:
+          type: integer
+        price:
+          type: number
+        maxPlayers:
+          type: integer
+        playersRegistered:
+          type: integer
+        registrationOpen:
+          type: boolean
+        status:
+          type: string
+          enum: [upcoming, active, completed, cancelled]
+        description:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    DropinInput:
+      type: object
+      required: [name, ageGroup, courtId, startsAt, durationMinutes, price, maxPlayers]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        ageGroup:
+          type: string
+          enum: [u8, u9, u10, u11, u12, u13, u14, u15, u16, u17, u18, adult]
+        courtId:
+          type: integer
+        startsAt:
+          type: string
+          format: date-time
+        durationMinutes:
+          type: integer
+        price:
+          type: number
+        maxPlayers:
+          type: integer
+        registrationOpen:
+          type: boolean
+        description:
+          type: ["string", "null"]
+
+    DropinUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        ageGroup:
+          type: string
+          enum: [u8, u9, u10, u11, u12, u13, u14, u15, u16, u17, u18, adult]
+        courtId:
+          type: integer
+        startsAt:
+          type: string
+          format: date-time
+        durationMinutes:
+          type: integer
+        price:
+          type: number
+        maxPlayers:
+          type: integer
+        registrationOpen:
+          type: boolean
+        description:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [upcoming, active, completed, cancelled]
+
+    Tournament:
+      type: object
+      required: [id, name, ageGroup, format, courtId, status, teamPrice, maxTeams, registrationOpen]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        ageGroup:
+          type: string
+          enum: [u8, u9, u10, u11, u12, u13, u14, u15, u16, u17, u18, adult]
+        format:
+          type: string
+          enum: [5v5, 4v4, 3v3]
+        courtId:
+          type: integer
+        status:
+          type: string
+          enum: [upcoming, active, completed]
+        teamPrice:
+          type: number
+        maxTeams:
+          type: integer
+        teamsRegistered:
+          type: integer
+        registrationOpen:
+          type: boolean
+        registrationDeadline:
+          type: ["string", "null"]
+          format: date-time
+        startDate:
+          type: ["string", "null"]
+          format: date
+        endDate:
+          type: ["string", "null"]
+          format: date
+        description:
+          type: ["string", "null"]
+        imageUrl:
+          type: ["string", "null"]
+        prizePot:
+          type: ["number", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    TournamentInput:
+      type: object
+      required: [name, ageGroup, format, courtId, teamPrice, maxTeams]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        ageGroup:
+          type: string
+          enum: [u8, u9, u10, u11, u12, u13, u14, u15, u16, u17, u18, adult]
+        format:
+          type: string
+          enum: [5v5, 4v4, 3v3]
+        courtId:
+          type: integer
+        teamPrice:
+          type: number
+        maxTeams:
+          type: integer
+        registrationOpen:
+          type: boolean
+        registrationDeadline:
+          type: ["string", "null"]
+          format: date-time
+        startDate:
+          type: ["string", "null"]
+          format: date
+        endDate:
+          type: ["string", "null"]
+          format: date
+        description:
+          type: ["string", "null"]
+        imageUrl:
+          type: ["string", "null"]
+        prizePot:
+          type: ["number", "null"]
+
+    TournamentUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        ageGroup:
+          type: string
+          enum: [u8, u9, u10, u11, u12, u13, u14, u15, u16, u17, u18, adult]
+        format:
+          type: string
+          enum: [5v5, 4v4, 3v3]
+        courtId:
+          type: integer
+        teamPrice:
+          type: number
+        maxTeams:
+          type: integer
+        registrationOpen:
+          type: boolean
+        registrationDeadline:
+          type: ["string", "null"]
+          format: date-time
+        startDate:
+          type: ["string", "null"]
+          format: date
+        endDate:
+          type: ["string", "null"]
+          format: date
+        description:
+          type: ["string", "null"]
+        imageUrl:
+          type: ["string", "null"]
+        prizePot:
+          type: ["number", "null"]
+        status:
+          type: string
+          enum: [upcoming, active, completed]
+
+    Team:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        leagueId:
+          type: ["integer", "null"]
+        tournamentId:
+          type: ["integer", "null"]
+        captainUserId:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    TeamInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        leagueId:
+          type: ["integer", "null"]
+        tournamentId:
+          type: ["integer", "null"]
+        captainUserId:
+          type: ["string", "null"]
+
+    TeamUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        captainUserId:
+          type: ["string", "null"]
+
+    Referral:
+      type: object
+      required: [id, code, referrerId, status, rewardCreditCents, createdAt]
+      properties:
+        id:
+          type: integer
+        code:
+          type: string
+        referrerId:
+          type: integer
+        referredUserId:
+          type: ["integer", "null"]
+        status:
+          type: string
+          enum: [pending, completed]
+        rewardCreditCents:
+          type: integer
+        redeemedAt:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    Registration:
+      type: object
+      required: [id, userId, programType, programId, status, amountPaid, createdAt]
+      properties:
+        id:
+          type: integer
+        userId:
+          type: string
+        programType:
+          type: string
+          enum: [league, camp, drop_in, tournament]
+        programId:
+          type: integer
+        programName:
+          type: string
+        teamId:
+          type: ["integer", "null"]
+        status:
+          type: string
+          enum: [pending, confirmed, cancelled, waitlisted]
+        amountPaid:
+          type: number
+        paymentStatus:
+          type: string
+          enum: [unpaid, paid, refunded, partial]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    RegistrationInput:
+      type: object
+      required: [programType, programId]
+      properties:
+        programType:
+          type: string
+          enum: [league, camp, drop_in, tournament]
+        programId:
+          type: integer
+        teamId:
+          type: ["integer", "null"]
+
+    RegistrationUpdate:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [pending, confirmed, cancelled, waitlisted]
+        paymentStatus:
+          type: string
+          enum: [unpaid, paid, refunded, partial]
+
+    UserProfile:
+      type: object
+      required: [id, clerkId, email, createdAt]
+      properties:
+        id:
+          type: integer
+        clerkId:
+          type: string
+        email:
+          type: string
+        firstName:
+          type: ["string", "null"]
+        lastName:
+          type: ["string", "null"]
+        phone:
+          type: ["string", "null"]
+        dateOfBirth:
+          type: ["string", "null"]
+          format: date
+        role:
+          type: ["string", "null"]
+          enum: [player, parent, ref, coach, staff, admin, null]
+        roles:
+          type: array
+          items:
+            type: string
+        adminLevel:
+          type: ["string", "null"]
+          enum: [super, admin, scoped, null]
+        playonId:
+          type: ["string", "null"]
+        qrCode:
+          type: ["string", "null"]
+        emergencyContactName:
+          type: ["string", "null"]
+        emergencyContactPhone:
+          type: ["string", "null"]
+        avatarUrl:
+          type: ["string", "null"]
+        idVerified:
+          type: boolean
+        idVerifiedAt:
+          type: ["string", "null"]
+          format: date-time
+        idPhotoUrl:
+          type: ["string", "null"]
+        addressLine1:
+          type: ["string", "null"]
+        city:
+          type: ["string", "null"]
+        state:
+          type: ["string", "null"]
+        zip:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    UserProfileUpdate:
+      type: object
+      properties:
+        firstName:
+          type: string
+        lastName:
+          type: string
+        phone:
+          type: string
+        dateOfBirth:
+          type: ["string", "null"]
+          format: date
+        emergencyContactName:
+          type: ["string", "null"]
+        emergencyContactPhone:
+          type: ["string", "null"]
+        avatarUrl:
+          type: ["string", "null"]
+        role:
+          type: string
+          enum: [player, parent, ref, coach, staff, admin]
+        roles:
+          type: array
+          items:
+            type: string
+        adminLevel:
+          type: ["string", "null"]
+          enum: [super, admin, scoped, null]
+        addressLine1:
+          type: ["string", "null"]
+        city:
+          type: ["string", "null"]
+        state:
+          type: ["string", "null"]
+        zip:
+          type: ["string", "null"]
+
+    AdminStats:
+      type: object
+      required: [totalUsers, totalRegistrations, activeLeagues, activeCamps, upcomingDropins, upcomingTournaments, totalRevenue, registrationsByType]
+      properties:
+        totalUsers:
+          type: integer
+        totalRegistrations:
+          type: integer
+        activeLeagues:
+          type: integer
+        activeCamps:
+          type: integer
+        upcomingDropins:
+          type: integer
+        upcomingTournaments:
+          type: integer
+        totalRevenue:
+          type: number
+        registrationsByType:
+          type: object
+          properties:
+            league:
+              type: integer
+            camp:
+              type: integer
+            drop_in:
+              type: integer
+            tournament:
+              type: integer
+
+    ActivityItem:
+      type: object
+      required: [id, type, message, createdAt]
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+          enum: [registration, cancellation, payment, user_joined, program_created]
+        message:
+          type: string
+        userId:
+          type: ["string", "null"]
+        userName:
+          type: ["string", "null"]
+        programName:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    # ── Pricing Rules ────────────────────────────────────────────────────────
+    PricingRule:
+      type: object
+      required: [id, name, category, version, isLatest, isActive, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        category:
+          type: string
+          enum: [drop_in, camp, league, tournament]
+        version:
+          type: integer
+        isLatest:
+          type: boolean
+        supersededById:
+          type: ["integer", "null"]
+        basePrice:
+          type: ["number", "null"]
+        memberPrice:
+          type: ["number", "null"]
+        depositAmount:
+          type: ["number", "null"]
+        depositRequired:
+          type: ["boolean", "null"]
+        balanceDueDate:
+          type: ["string", "null"]
+          format: date
+        skillTierPricing:
+          type: ["string", "null"]
+        packSize:
+          type: ["integer", "null"]
+        packPrice:
+          type: ["number", "null"]
+        pricingBasis:
+          type: ["string", "null"]
+        earlyBirdPrice:
+          type: ["number", "null"]
+        earlyBirdCutoff:
+          type: ["string", "null"]
+          format: date
+        lateFee:
+          type: ["number", "null"]
+        siblingDiscountPct:
+          type: ["number", "null"]
+        teamFee:
+          type: ["number", "null"]
+        playerFee:
+          type: ["number", "null"]
+        installmentPlan:
+          type: ["boolean", "null"]
+        installmentCount:
+          type: ["integer", "null"]
+        teamEntryFee:
+          type: ["number", "null"]
+        perPlayerFee:
+          type: ["number", "null"]
+        notes:
+          type: ["string", "null"]
+        isActive:
+          type: boolean
+        createdByClerkId:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    PricingRuleInput:
+      type: object
+      required: [name, category]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        category:
+          type: string
+          enum: [drop_in, camp, league, tournament]
+        basePrice:
+          type: ["number", "null"]
+        memberPrice:
+          type: ["number", "null"]
+        depositAmount:
+          type: ["number", "null"]
+        depositRequired:
+          type: boolean
+        balanceDueDate:
+          type: ["string", "null"]
+          format: date
+        skillTierPricing:
+          type: ["string", "null"]
+        packSize:
+          type: ["integer", "null"]
+        packPrice:
+          type: ["number", "null"]
+        pricingBasis:
+          type: ["string", "null"]
+        earlyBirdPrice:
+          type: ["number", "null"]
+        earlyBirdCutoff:
+          type: ["string", "null"]
+          format: date
+        lateFee:
+          type: ["number", "null"]
+        siblingDiscountPct:
+          type: ["number", "null"]
+        teamFee:
+          type: ["number", "null"]
+        playerFee:
+          type: ["number", "null"]
+        installmentPlan:
+          type: boolean
+        installmentCount:
+          type: ["integer", "null"]
+        teamEntryFee:
+          type: ["number", "null"]
+        perPlayerFee:
+          type: ["number", "null"]
+        notes:
+          type: ["string", "null"]
+
+    PricingRuleUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        basePrice:
+          type: ["number", "null"]
+        memberPrice:
+          type: ["number", "null"]
+        depositAmount:
+          type: ["number", "null"]
+        depositRequired:
+          type: boolean
+        balanceDueDate:
+          type: ["string", "null"]
+          format: date
+        skillTierPricing:
+          type: ["string", "null"]
+        packSize:
+          type: ["integer", "null"]
+        packPrice:
+          type: ["number", "null"]
+        pricingBasis:
+          type: ["string", "null"]
+        earlyBirdPrice:
+          type: ["number", "null"]
+        earlyBirdCutoff:
+          type: ["string", "null"]
+          format: date
+        lateFee:
+          type: ["number", "null"]
+        siblingDiscountPct:
+          type: ["number", "null"]
+        teamFee:
+          type: ["number", "null"]
+        playerFee:
+          type: ["number", "null"]
+        installmentPlan:
+          type: boolean
+        installmentCount:
+          type: ["integer", "null"]
+        teamEntryFee:
+          type: ["number", "null"]
+        perPlayerFee:
+          type: ["number", "null"]
+        notes:
+          type: ["string", "null"]
+
+    # ── Facility Split Rules ─────────────────────────────────────────────────
+    FacilitySplitRule:
+      type: object
+      required: [id, name, splitType, version, isLatest, isActive, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        venueId:
+          type: ["integer", "null"]
+        offeringType:
+          type: ["string", "null"]
+        offeringId:
+          type: ["integer", "null"]
+        splitType:
+          type: string
+          enum: [percentage, flat, hybrid]
+        facilityPct:
+          type: ["number", "null"]
+        flatFee:
+          type: ["number", "null"]
+        flatFeeUnit:
+          type: ["string", "null"]
+        version:
+          type: integer
+        isLatest:
+          type: boolean
+        supersededById:
+          type: ["integer", "null"]
+        isActive:
+          type: boolean
+        notes:
+          type: ["string", "null"]
+        createdByClerkId:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    FacilitySplitRuleInput:
+      type: object
+      required: [name, splitType]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        venueId:
+          type: ["integer", "null"]
+        offeringType:
+          type: ["string", "null"]
+        offeringId:
+          type: ["integer", "null"]
+        splitType:
+          type: string
+          enum: [percentage, flat, hybrid]
+        facilityPct:
+          type: ["number", "null"]
+        flatFee:
+          type: ["number", "null"]
+        flatFeeUnit:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+
+    FacilitySplitRuleUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        venueId:
+          type: ["integer", "null"]
+        offeringType:
+          type: ["string", "null"]
+        offeringId:
+          type: ["integer", "null"]
+        splitType:
+          type: string
+          enum: [percentage, flat, hybrid]
+        facilityPct:
+          type: ["number", "null"]
+        flatFee:
+          type: ["number", "null"]
+        flatFeeUnit:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+
+    # ── Service Fee Config ───────────────────────────────────────────────────
+    ServiceFeeConfig:
+      type: object
+      required: [id, name, feePercent, appliesToCard, appliesToExternal, nonRefundable, isActive, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        feePercent:
+          type: number
+        maxFeeAmount:
+          type: ["number", "null"]
+        minFeeAmount:
+          type: ["number", "null"]
+        appliesToCard:
+          type: boolean
+        appliesToExternal:
+          type: boolean
+        nonRefundable:
+          type: boolean
+        isActive:
+          type: boolean
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ServiceFeeConfigUpdate:
+      type: object
+      properties:
+        feePercent:
+          type: number
+          minimum: 0
+          maximum: 100
+        maxFeeAmount:
+          type: ["number", "null"]
+        minFeeAmount:
+          type: ["number", "null"]
+        appliesToCard:
+          type: boolean
+        appliesToExternal:
+          type: boolean
+        notes:
+          type: ["string", "null"]
+
+    # ── Revenue Records ──────────────────────────────────────────────────────
+    RevenueRecord:
+      type: object
+      required: [id, entityType, grossAmount, facilityAmount, serviceFeeAmount, playonNet, currency, revenueDate, category, createdAt]
+      properties:
+        id:
+          type: integer
+        entityType:
+          type: string
+        entityId:
+          type: ["integer", "null"]
+        paymentId:
+          type: ["integer", "null"]
+        splitRuleId:
+          type: ["integer", "null"]
+        pricingRuleId:
+          type: ["integer", "null"]
+        grossAmount:
+          type: number
+        facilityAmount:
+          type: number
+        serviceFeeAmount:
+          type: number
+        playonNet:
+          type: number
+        currency:
+          type: string
+        revenueDate:
+          type: string
+          format: date
+        category:
+          type: string
+        description:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    RevenueOverview:
+      type: object
+      required: [records, totals]
+      properties:
+        records:
+          type: array
+          items:
+            $ref: "#/components/schemas/RevenueRecord"
+        totals:
+          type: object
+          required: [grossAmount, facilityAmount, serviceFeeAmount, playonNet]
+          properties:
+            grossAmount:
+              type: number
+            facilityAmount:
+              type: number
+            serviceFeeAmount:
+              type: number
+            playonNet:
+              type: number
+
+    # ── Memberships ──────────────────────────────────────────────────────────
+    MembershipPlan:
+      type: object
+      required: [id, name, price, billingCycle, isActive, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        price:
+          type: string
+        billingCycle:
+          type: string
+          enum: [monthly, annual]
+        trialDays:
+          type: integer
+        features:
+          type: array
+          items:
+            type: string
+        discountPercent:
+          type: string
+        isActive:
+          type: boolean
+        stripeProductId:
+          type: ["string", "null"]
+        stripePriceId:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    UserMembership:
+      type: object
+      required: [id, userId, planId, status, startDate, createdAt]
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        planId:
+          type: integer
+        status:
+          type: string
+          enum: [active, cancelled, past_due]
+        startDate:
+          type: ["string", "null"]
+          format: date
+        endDate:
+          type: ["string", "null"]
+          format: date
+        renewsAt:
+          type: ["string", "null"]
+          format: date
+        cancelledAt:
+          type: ["string", "null"]
+          format: date-time
+        providerSubscriptionId:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    # ── Audit Log ────────────────────────────────────────────────────────────
+    AuditLogEntry:
+      type: object
+      required: [id, action, entityType, createdAt]
+      properties:
+        id:
+          type: integer
+        actorUserId:
+          type: ["integer", "null"]
+        actorClerkId:
+          type: ["string", "null"]
+        action:
+          type: string
+        entityType:
+          type: string
+        entityId:
+          type: ["string", "null"]
+        before:
+          type: ["string", "null"]
+        after:
+          type: ["string", "null"]
+        ipAddress:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time

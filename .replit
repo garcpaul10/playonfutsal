@@ -1,0 +1,56 @@
+modules = ["nodejs-24", "python-3.11", "postgresql-16"]
+
+[deployment]
+router = "application"
+deploymentTarget = "autoscale"
+
+[deployment.postBuild]
+args = ["pnpm", "store", "prune"]
+env = { "CI" = "true" }
+
+[workflows]
+runButton = "Project"
+
+[agent]
+stack = "PNPM_WORKSPACE"
+expertMode = true
+integrations = ["stripe:1.0.0"]
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 60000
+
+[[ports]]
+localPort = 8080
+externalPort = 8080
+
+[[ports]]
+localPort = 8081
+externalPort = 80
+
+[[ports]]
+localPort = 8082
+externalPort = 3002
+
+[[ports]]
+localPort = 19013
+externalPort = 3000
+
+[[ports]]
+localPort = 23845
+externalPort = 3001
+
+[nix]
+channel = "stable-25_05"
+
+[userenv]
+
+[userenv.production]
+ALLOWED_ORIGINS = "https://playonfutsal.com,https://play-on-futsal.replit.app"
+PUBLIC_APP_URL = "https://playonfutsal.com"
+
+[userenv.shared]
+EMAIL_FROM = "PlayOn <info@playonfutsal.com>"
+VAPID_PUBLIC_KEY = "BIOFOBprnBp93LEnkD_toln5UvENNyAb-alHk8h7F1dnvuIY_gqe5taoOGCjLoXl2dyuQPqcZoquxSGPp2Kmdl0"
+VAPID_CONTACT_EMAIL = "no-reply@playon.app"
+VITE_VAPID_PUBLIC_KEY = "BIOFOBprnBp93LEnkD_toln5UvENNyAb-alHk8h7F1dnvuIY_gqe5taoOGCjLoXl2dyuQPqcZoquxSGPp2Kmdl0"

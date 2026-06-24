@@ -1,0 +1,29 @@
+Multi-court battles — Can a battle run on 2 courts simultaneously (e.g., 16 teams, 2 rotations)? Or always single-court?
+Ref assignment — How are refs assigned to specific battles? Do they have staff accounts, or does any admin-level user manage the queue?
+Partial team check-in — What if only 3 of 4 players show up? Can a team play short-handed, or do they forfeit their rotation spot?
+Captain substitute — If the captain can't attend, can they designate another player as acting captain (QR holder) for that battle?
+Admin battle controls — Ability to pause a battle, extend time, or resolve a disputed result manually
+Captain / Team Experience
+
+Voluntary mid-battle withdraw — A captain who's low on lives but not at zero might want to bow out strategically. Should there be a "leave battle" button?
+Team branding — Team name + color or logo? Adds identity to the leaderboard and makes it feel more like a real league
+Life balance visibility — Should all players on the team see the current life balance, or just the captain?
+Spectator & Venue Experience
+
+Public leaderboard URL — A QR code posted at the venue that non-registered spectators can scan to watch the live rotation queue and leaderboard on their phone
+Court-side kiosk view — A TV-optimized fullscreen display of the rotation queue and current match (who's on court, score if tracked, lives remaining per team)
+Live score during match — Can the ref (or a second device) log the live score during a match so spectators can follow it, or is the final result the only thing recorded?
+Season Design
+
+Mid-season registration — Can a new team join a season after it starts? If so, do they start with a life disadvantage, or does the admin set a cutoff?
+Multi-season continuity — After month 1 ends, does the next season start completely fresh? Do defending champions get a seeding advantage, a badge, or a discounted life pack?
+Bonus life moments — Admin-configurable "drama rules" like: first team to win 5 in a row gets a bonus life or comeback of the night award. Adds spectator excitement.
+Commerce
+
+Revenue split on life purchases — If this runs at third-party venues, do venue operators get a cut of in-battle life purchases? The existing revenue split system could handle this.
+Gifting lives — Can a captain purchase lives and send them to a teammate's team? (Probably no, but worth a decision)
+Refund policy — If a team buys lives but the battle gets cancelled, what's the refund rule?
+Post-Battle
+
+Battle recap — Auto-generated summary after each 2hr session: most wins, longest streak, biggest comeback, teams eliminated. Shareable card for captains.
+Season-end crown moment — Beyond the badge and free lives, should the app generate a shareable graphic the winning team can post? Good organic reach.

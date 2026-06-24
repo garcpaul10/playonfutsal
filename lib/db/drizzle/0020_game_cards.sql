@@ -1,0 +1,30 @@
+CREATE TABLE IF NOT EXISTS "game_cards" (
+  "id" serial PRIMARY KEY NOT NULL,
+  "fixture_id" integer NOT NULL REFERENCES "fixtures"("id") ON DELETE cascade,
+  "entity_type" text NOT NULL DEFAULT 'league',
+  "entity_id" integer NOT NULL,
+  "home_team_id" integer,
+  "away_team_id" integer,
+  "home_team_name" text,
+  "away_team_name" text,
+  "home_roster" text NOT NULL DEFAULT '[]',
+  "away_roster" text NOT NULL DEFAULT '[]',
+  "ref_user_ids" text NOT NULL DEFAULT '[]',
+  "home_score" integer NOT NULL DEFAULT 0,
+  "away_score" integer NOT NULL DEFAULT 0,
+  "home_present" boolean NOT NULL DEFAULT false,
+  "away_present" boolean NOT NULL DEFAULT false,
+  "status" text NOT NULL DEFAULT 'upcoming',
+  "fouls" text NOT NULL DEFAULT '[]',
+  "disciplinary_actions" text NOT NULL DEFAULT '[]',
+  "disciplinary_flagged" boolean NOT NULL DEFAULT false,
+  "disciplinary_reviewed_at" timestamp with time zone,
+  "disciplinary_reviewed_by" integer REFERENCES "users"("id") ON DELETE set null,
+  "completed_at" timestamp with time zone,
+  "locked_at" timestamp with time zone,
+  "notes" text,
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "updated_at" timestamp with time zone NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "game_cards_fixture_id_unique" ON "game_cards" ("fixture_id");

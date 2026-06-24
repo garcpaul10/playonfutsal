@@ -1,0 +1,21 @@
+The live getUserMedia preview capture is not working on iOS Safari — confirmed by console: all five decode passes (full-frame, center-crop, rotate-90/180/270) return 0 result(s), and the captured frame is low-detail, soft, and glare-prone because iOS Safari hands web pages a degraded preview stream that lacks the resolution/focus dense PDF417 needs. Pivot the primary capture to the native file-input photo, which opens the real iOS Camera app and returns a full-resolution, properly-focused still.
+
+In artifacts/playon/src/components/id-scanner-camera.tsx:
+
+1. Make native file-input the PRIMARY capture method on the file-input engine path (not getUserMedia live preview). The main "Take Photo" button should trigger fileInputRef.current?.click() on the hidden <input type="file" accept="image/*" capture="environment">, which opens the native camera. Decode the returned photo with the existing ZXing pipeline (keep all decode passes: full-frame → center-crop → rotate-90/180/270).
+
+2. Remove the getUserMedia live preview as the primary path. It's unreliable on iOS for PDF417. (You may keep it ONLY behind the Chrome/Android BarcodeDetector path if that already exists — but do not use getUserMedia + ZXing as the iOS capture method.)
+
+3. Keep the alignment box and the "Lay the card flat · fill the frame · avoid glare" guidance as visual instruction before the user taps Take Photo.
+
+4. Keep "Enter ID manually" link and the existing error/retry UI.
+
+5. Log "[scanner] engine: file input + ZXing WASM" as today, and keep logging each decode pass result.
+
+OUT OF SCOPE: AAMVA parser, backend, manual-entry logic. Do not re-add ImageCapture. Do not add continuous auto-scan.
+
+DONE LOOKS LIKE:
+- Tapping "Take Photo" on iPhone/iPad opens the native iOS Camera app (not an in-page video preview)
+- The user photographs the barcode (camera autofocuses), and the full-resolution photo decodes to AAMVA data and advances the wizard
+- Console shows which decode pass succeeded
+- Works on Safari iOS, iPad kiosk, Safari Mac (Mac will open file picker — acceptable), and Chrome

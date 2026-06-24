@@ -1,0 +1,24 @@
+The ID scanner now correctly uses file-input + ZXing (console shows "engine: file input + ZXing WASM" — good, do not change the capture engine). But decode still returns "full-frame: 0 result(s)" / "center-crop: 0 result(s)" on real photos. The decoder works — a well-cropped, upright photo of the barcode decodes fine. The problem is the captured image: barcode too small in frame, sometimes rotated, sometimes glare. Fix the capture and decode robustness. Keep tap-to-capture (do NOT add live auto-scan — unreliable on Safari/iPad, and reliability is the priority for a mixed device fleet).
+
+In artifacts/playon/src/components/id-scanner-camera.tsx:
+
+CAPTURE — replace the bare file-input with a live in-page camera preview framed to the alignment box:
+1. On the Scan ID step, request the rear camera via getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } } }) and show the live <video> preview INSIDE the existing dashed alignment rectangle.
+2. Keep the "Take Photo" button. On tap, draw the current video frame to a canvas at the video's native videoWidth/videoHeight (not the CSS display size), and run the existing ZXing decode pipeline on that canvas.
+3. Keep the native file-input (<input type="file" accept="image/*" capture="environment">) as a fallback button labeled "Upload photo instead" in case getUserMedia is blocked/denied.
+4. Keep the "Enter ID manually" link.
+
+DECODE — add more retry passes before declaring failure, in this order, stopping at the first hit:
+   a. full-frame (existing)
+   b. center-crop (existing)
+   c. rotate the image 90°, 180°, 270° and decode each (the barcode is often captured sideways)
+   d. enable ZXing tryHarder option on all passes
+   Log each pass result as you already do (e.g. "rotate-90: N result(s)").
+
+OUT OF SCOPE: AAMVA parser, backend routes, manual-entry form logic. Do not re-add ImageCapture or live continuous auto-scan.
+
+DONE LOOKS LIKE:
+- Live rear-camera preview shows inside the alignment box on Safari Mac, Safari iOS, iPad kiosk, and Chrome
+- Lining the license up to the box and tapping Take Photo decodes a KY license to AAMVA data and advances the wizard
+- Console shows the decode passes and which one succeeded
+- "Upload photo instead" fallback works if camera permission is denied
