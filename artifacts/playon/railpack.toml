@@ -1,0 +1,2 @@
+[install]
+cmd = "npm install -g pnpm && cd ../.. && pnpm install"
