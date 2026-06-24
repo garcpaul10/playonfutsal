@@ -8,6 +8,6 @@ RUN pnpm --filter @workspace/playon run build
 FROM node:22-slim
 RUN npm install -g serve
 WORKDIR /app
-COPY --from=builder /app/artifacts/playon/dist ./dist
+COPY --from=builder /app/artifacts/playon/dist/public ./dist
 EXPOSE 3000
 CMD ["serve", "dist", "-p", "3000"]
