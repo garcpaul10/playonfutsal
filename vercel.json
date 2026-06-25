@@ -1,0 +1,5 @@
+{
+  "buildCommand": "pnpm --filter @workspace/playon run build",
+  "outputDirectory": "artifacts/playon/dist/public",
+  "installCommand": "pnpm install --ignore-scripts --no-frozen-lockfile"
+}
