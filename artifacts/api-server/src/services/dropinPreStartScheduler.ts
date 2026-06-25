@@ -256,12 +256,21 @@ async function runPreStartJobs(): Promise<void> {
           );
         if (existingOcc?.status === "cancelled") continue;
 
+        // Track whether the occurrence was already materialized before this run.
+        // Auto-cancel only applies to previously-materialized occurrences — a freshly
+        // materialized occurrence has had zero time to accumulate registrations.
+        const alreadyMaterialized = !!existingOcc?.materializedDropinId;
+
         // Materialize
         const { occurrenceId, dropinIds } = await materializeOccurrence(template, pools, date);
 
-        // Check auto-cancel threshold at T-24h (only if within 24h window)
+        // Check auto-cancel threshold at T-24h (only if within 24h window and already had registrations window)
         const msUntilStart = startsAt.getTime() - now.getTime();
-        if (msUntilStart <= AUTO_CANCEL_CHECK_HOURS * 60 * 60 * 1000 && dropinIds.length > 0) {
+        if (
+          alreadyMaterialized &&
+          msUntilStart <= AUTO_CANCEL_CHECK_HOURS * 60 * 60 * 1000 &&
+          dropinIds.length > 0
+        ) {
           await checkAutoCancel(template, occurrenceId, dropinIds);
         }
       }
