@@ -1,6 +1,7 @@
 {
   "framework": null,
-  "buildCommand": "cd artifacts/playon && pnpm run build",
-  "outputDirectory": "artifacts/playon/dist",
-  "installCommand": "pnpm install --ignore-scripts --no-frozen-lockfile"
+  "rootDirectory": "artifacts/playon",
+  "buildCommand": "pnpm run build",
+  "outputDirectory": "dist",
+  "installCommand": "cd ../.. && pnpm install --ignore-scripts --no-frozen-lockfile"
 }
