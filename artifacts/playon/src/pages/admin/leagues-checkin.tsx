@@ -20,7 +20,7 @@ import { QrScannerModal } from "@/components/qr-scanner-modal";
 import { CheckInResultOverlay, type CheckInResult } from "@/components/checkin-result-overlay";
 import { friendlyDenialReason, friendlyTimingReason } from "@/lib/checkin-utils";
 
-const API = "/api";
+import { API_BASE as API } from "@/lib/api-base";
 
 function useAuthHeaders() {
   const { getToken } = useAuth();

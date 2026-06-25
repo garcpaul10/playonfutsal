@@ -10,7 +10,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth, Show } from "@clerk/react";
 import { useToast } from "@/hooks/use-toast";
 
-const API = "/api";
+import { API_BASE as API } from "@/lib/api-base";
 
 function useAuthHeaders() {
   const { getToken } = useAuth();

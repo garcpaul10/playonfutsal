@@ -30,7 +30,7 @@ import { format, addMonths, startOfMonth, endOfMonth, eachDayOfInterval, getDay,
 import { AGE_GROUPS } from "@workspace/brand";
 import { Layout } from "@/components/layout";
 
-const API = "/api";
+import { API_BASE as API } from "@/lib/api-base";
 
 function useAuthHeaders() {
   const { getToken } = useAuth();

@@ -31,7 +31,7 @@ import { format, parseISO } from "date-fns";
 import { Layout } from "@/components/layout";
 import { WizardShell } from "@/components/admin/WizardShell";
 
-const API = "/api";
+import { API_BASE as API } from "@/lib/api-base";
 
 function useAuthHeaders() {
   const { getToken } = useAuth();

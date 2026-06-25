@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@clerk/react";
 
-const API = "/api";
+import { API_BASE as API } from "@/lib/api-base";
 
 export function useIsRegistered(type: "league" | "tournament", id: number) {
   const { getToken, isSignedIn } = useAuth();

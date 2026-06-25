@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/react";
 
-const API = "/api";
+import { API_BASE as API } from "@/lib/api-base";
 
 function useAuthHeaders() {
   const { getToken } = useAuth();

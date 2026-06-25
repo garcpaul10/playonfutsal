@@ -35,7 +35,7 @@ import {
 } from "lucide-react";
 import { EventSplitPanel } from "@/components/event-split-panel";
 
-const API = "/api";
+import { API_BASE as API } from "@/lib/api-base";
 
 function useAuthHeaders() {
   const { getToken } = useAuth();

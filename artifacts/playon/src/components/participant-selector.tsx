@@ -16,7 +16,7 @@ import { useAuth } from "@clerk/react";
 import { useToast } from "@/hooks/use-toast";
 import { ChildWaiverSignModal } from "@/components/waiver-modal";
 
-const API = "/api";
+import { API_BASE as API } from "@/lib/api-base";
 
 const AGE_RANGES: Record<string, { min: number; max: number }> = {
   u8:  { min: 8,  max: 8  }, u9:  { min: 9,  max: 9  }, u10: { min: 10, max: 10 },

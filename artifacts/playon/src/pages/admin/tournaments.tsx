@@ -43,7 +43,7 @@ import { EventSplitPanel } from "@/components/event-split-panel";
 
 import { AGE_GROUPS } from "@workspace/brand";
 
-const API = "/api";
+import { API_BASE as API } from "@/lib/api-base";
 const GENDER_OPTIONS = [
   { value: "boy", label: "Boys" },
   { value: "girl", label: "Girls" },

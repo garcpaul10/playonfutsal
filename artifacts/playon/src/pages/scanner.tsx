@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { QrScannerModal } from "@/components/qr-scanner-modal";
 
-const API = "/api";
+import { API_BASE as API } from "@/lib/api-base";
 
 function useAuthHeaders() {
   const { getToken } = useAuth();

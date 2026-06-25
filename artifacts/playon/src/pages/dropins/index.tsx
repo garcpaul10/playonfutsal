@@ -13,7 +13,7 @@ import {
   computeStatus,
 } from "@/components/event-card";
 
-const API = "/api";
+import { API_BASE as API } from "@/lib/api-base";
 
 export default function DropinsList() {
   const { data: legacySessions, isLoading: legacyLoading } = useListDropins();

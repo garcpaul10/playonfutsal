@@ -21,7 +21,7 @@ import { InlinePaymentDialog } from "@/components/inline-payment-dialog";
 import { ParticipantSelector } from "@/components/participant-selector";
 import { useGetMyProfile } from "@workspace/api-client-react";
 
-const API = "/api";
+import { API_BASE as API } from "@/lib/api-base";
 
 const ACTIVE_BUFFER_MS = 30 * 60 * 1000;
 function computeIsEventActive(event: any): boolean {

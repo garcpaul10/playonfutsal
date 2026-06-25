@@ -14,7 +14,7 @@ import { useAuth, Show } from "@clerk/react";
 import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
 import { useGetMyProfile } from "@workspace/api-client-react";
 
-const API = "/api";
+import { API_BASE as API } from "@/lib/api-base";
 
 export default function TournamentSelfCheckin() {
   const [, params] = useRoute("/tournaments/:id/self-checkin");

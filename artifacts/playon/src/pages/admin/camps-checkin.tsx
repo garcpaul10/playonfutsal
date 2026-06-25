@@ -20,7 +20,7 @@ import { CheckInResultOverlay, type CheckInResult } from "@/components/checkin-r
 import { friendlyDenialReason, friendlyTimingReason } from "@/lib/checkin-utils";
 import { format } from "date-fns";
 
-const API = "/api";
+import { API_BASE as API } from "@/lib/api-base";
 
 function useAuthHeaders() {
   const { getToken } = useAuth();

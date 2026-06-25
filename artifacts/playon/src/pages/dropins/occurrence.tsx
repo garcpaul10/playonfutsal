@@ -24,7 +24,7 @@ import { InlinePaymentDialog } from "@/components/inline-payment-dialog";
 import { ParticipantSelector } from "@/components/participant-selector";
 import { useWaiverGate } from "@/components/waiver-modal";
 
-const API = "/api";
+import { API_BASE as API } from "@/lib/api-base";
 
 function useCountdown(expiresAt: string | null | undefined): string | null {
   const [remaining, setRemaining] = useState<number | null>(null);

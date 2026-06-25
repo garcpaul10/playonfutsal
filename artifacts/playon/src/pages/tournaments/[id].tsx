@@ -18,7 +18,7 @@ import { LockedTab } from "@/components/locked-tab";
 import { useWaiverGate } from "@/components/waiver-modal";
 import { InlinePaymentDialog } from "@/components/inline-payment-dialog";
 
-const API = "/api";
+import { API_BASE as API } from "@/lib/api-base";
 
 const ACTIVE_BUFFER_MS = 30 * 60 * 1000;
 function computeIsEventActive(event: any): boolean {

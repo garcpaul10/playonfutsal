@@ -14,7 +14,7 @@ import {
   ChevronUp, ChevronDown, ChevronsUpDown, BarChart3, Ban,
 } from "lucide-react";
 
-const API = "/api";
+import { API_BASE as API } from "@/lib/api-base";
 
 function useAuthHeaders() {
   const { getToken } = useAuth();
