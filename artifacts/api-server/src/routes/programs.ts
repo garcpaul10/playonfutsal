@@ -293,7 +293,12 @@ async function getAllPrograms(opts: GetAllProgramsOptions = {}) {
   }
 
   // Filter out template-backed dropins — they are represented by their template card.
-  const nonTemplateDropins = dropins.filter((d) => !materializedDropinIds.has(d.id));
+  // Exclude both: dropin rows linked via dropin_occurrences.materialized_dropin_id AND
+  // any dropin whose template_id matches a known template (legacy rows predate the occurrence link).
+  const templateIdSet = new Set(templateIds);
+  const nonTemplateDropins = dropins.filter(
+    (d) => !materializedDropinIds.has(d.id) && !(d.templateId != null && templateIdSet.has(d.templateId))
+  );
 
   // For dropins that have no pools, count confirmed flat-path spots live from the spots table
   const nopoolDropinIds = dropinIds.filter((id) => !aggregates.has(id));
