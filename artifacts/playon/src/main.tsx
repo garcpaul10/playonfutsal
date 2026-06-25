@@ -3,8 +3,8 @@ import App from "./App";
 import "./index.css";
 import { setBaseUrl } from "@workspace/api-client-react";
 
-const apiUrl = import.meta.env.VITE_API_URL;
-if (apiUrl) setBaseUrl(apiUrl);
+const apiUrl = import.meta.env.VITE_API_URL ?? "https://workspaceapi-server-production-3488.up.railway.app";
+setBaseUrl(apiUrl);
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
