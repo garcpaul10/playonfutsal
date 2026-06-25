@@ -291,13 +291,16 @@ async function buildOccurrencesForTemplate(
       const matchedDropin = dropinsForDate.find(
         (d) => Math.abs(d.startsAt.getTime() - poolEffectiveStartsAt.getTime()) < 60_000
       );
-      const cpList = matchedDropin ? (courtPoolsByDropinId.get(matchedDropin.id) ?? []) : [];
+      // Prefer bridge-column (dropinTemplatePoolId) match across ALL dropins for this date —
+      // this handles cases where pools were materialized onto a dropin with a different start
+      // time than the pool's own effective start time (e.g., adult pool on a youth-start dropin).
+      const allCpForDate = dropinsForDate.flatMap((d) => courtPoolsByDropinId.get(d.id) ?? []);
       const cpByTemplatePoolId = new Map(
-        cpList.filter((cp) => cp.dropinTemplatePoolId != null).map((cp) => [cp.dropinTemplatePoolId!, cp])
+        allCpForDate.filter((cp) => cp.dropinTemplatePoolId != null).map((cp) => [cp.dropinTemplatePoolId!, cp])
       );
+      // Fall back to court-ID match on the time-matched dropin for legacy rows without the bridge column.
+      const cpList = matchedDropin ? (courtPoolsByDropinId.get(matchedDropin.id) ?? []) : [];
       const cpByCourtId = new Map(cpList.map((cp) => [cp.courtId, cp]));
-      // Prefer bridge-column lookup (templatePoolId) so multi-pool same-court works correctly;
-      // fall back to courtId for legacy rows that predate the bridge column.
       const cp = cpByTemplatePoolId.get(pool.id) ?? cpByCourtId.get(pool.courtId);
       const stats = cp
         ? (spotsByPoolId.get(cp.id) ?? { spotsTaken: 0, waitlistCount: 0 })
