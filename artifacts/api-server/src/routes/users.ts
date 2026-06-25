@@ -47,6 +47,24 @@ async function getOrCreateUser(clerkId: string, email?: string): Promise<any> {
   }
   if (existing) return existing;
 
+  // No match by Clerk ID — check if an existing account shares this email (e.g. after auth provider migration).
+  // If found, re-link the old record to the new Clerk ID so the user keeps all their history.
+  if (email && !email.endsWith('@playon.local')) {
+    try {
+      const [byEmail] = await db.select().from(usersTable).where(eq(usersTable.email, email));
+      if (byEmail) {
+        const [relinked] = await db.update(usersTable)
+          .set({ clerkId })
+          .where(eq(usersTable.id, byEmail.id))
+          .returning();
+        logger.info({ oldClerkId: byEmail.clerkId, newClerkId: clerkId, email }, "[getOrCreateUser] Re-linked account to new Clerk ID");
+        return relinked ?? byEmail;
+      }
+    } catch (err: any) {
+      logger.warn({ email, detail: pgErrorDetail(err) }, "[getOrCreateUser] Email re-link lookup failed — will create new user");
+    }
+  }
+
   // Strip the 'user_' prefix so we use the random portion of the Clerk ID (36^8 ≈ 2.8T values).
   const baseRandomPart = clerkId.replace(/^user_/, '');
   const MAX_ATTEMPTS = 5;
