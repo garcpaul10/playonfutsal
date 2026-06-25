@@ -67,12 +67,18 @@ async function getOrCreateUser(clerkId: string, email?: string, phone?: string):
     }
   }
 
-  // Phone-based re-link: normalize to E.164 digits only for comparison
+  // Phone-based re-link: strip all non-digits then also try without a leading country code (1).
+  // Clerk returns E.164 (+17203751137) but DB entries often omit the country code (7203751137).
   if (phone) {
-    const normalizedPhone = phone.replace(/\D/g, "");
+    const digits = phone.replace(/\D/g, "");
+    // Build candidate set: full digits AND without leading US country code
+    const candidates = new Set([digits, digits.replace(/^1(\d{10})$/, "$1")]);
     try {
       const allWithPhone = await db.select().from(usersTable).where(sql`phone IS NOT NULL`);
-      const byPhone = allWithPhone.find((u: any) => u.phone?.replace(/\D/g, "") === normalizedPhone);
+      const byPhone = allWithPhone.find((u: any) => {
+        const dbDigits = (u.phone ?? "").replace(/\D/g, "");
+        return candidates.has(dbDigits) || candidates.has(dbDigits.replace(/^1(\d{10})$/, "$1"));
+      });
       if (byPhone) {
         const [relinked] = await db.update(usersTable)
           .set({ clerkId })
