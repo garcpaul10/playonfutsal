@@ -37,7 +37,7 @@ function pgErrorDetail(err: any): string {
   return parts.join(" | ") || String(err);
 }
 
-async function getOrCreateUser(clerkId: string, email?: string): Promise<any> {
+async function getOrCreateUser(clerkId: string, email?: string, phone?: string): Promise<any> {
   let existing: any;
   try {
     [existing] = await db.select().from(usersTable).where(eq(usersTable.clerkId, clerkId));
@@ -47,8 +47,10 @@ async function getOrCreateUser(clerkId: string, email?: string): Promise<any> {
   }
   if (existing) return existing;
 
-  // No match by Clerk ID — check if an existing account shares this email (e.g. after auth provider migration).
-  // If found, re-link the old record to the new Clerk ID so the user keeps all their history.
+  // No match by Clerk ID — try to re-link an existing account so the user keeps all their history.
+  // Auth provider migration: old instance used email, new instance uses phone number.
+  // Try email first, then phone as fallback.
+
   if (email && !email.endsWith('@playon.local')) {
     try {
       const [byEmail] = await db.select().from(usersTable).where(eq(usersTable.email, email));
@@ -57,11 +59,30 @@ async function getOrCreateUser(clerkId: string, email?: string): Promise<any> {
           .set({ clerkId })
           .where(eq(usersTable.id, byEmail.id))
           .returning();
-        logger.info({ oldClerkId: byEmail.clerkId, newClerkId: clerkId, email }, "[getOrCreateUser] Re-linked account to new Clerk ID");
+        logger.info({ oldClerkId: byEmail.clerkId, newClerkId: clerkId, email }, "[getOrCreateUser] Re-linked account to new Clerk ID via email");
         return relinked ?? byEmail;
       }
     } catch (err: any) {
-      logger.warn({ email, detail: pgErrorDetail(err) }, "[getOrCreateUser] Email re-link lookup failed — will create new user");
+      logger.warn({ email, detail: pgErrorDetail(err) }, "[getOrCreateUser] Email re-link lookup failed — will try phone");
+    }
+  }
+
+  // Phone-based re-link: normalize to E.164 digits only for comparison
+  if (phone) {
+    const normalizedPhone = phone.replace(/\D/g, "");
+    try {
+      const allWithPhone = await db.select().from(usersTable).where(sql`phone IS NOT NULL`);
+      const byPhone = allWithPhone.find((u: any) => u.phone?.replace(/\D/g, "") === normalizedPhone);
+      if (byPhone) {
+        const [relinked] = await db.update(usersTable)
+          .set({ clerkId })
+          .where(eq(usersTable.id, byPhone.id))
+          .returning();
+        logger.info({ oldClerkId: byPhone.clerkId, newClerkId: clerkId, phone }, "[getOrCreateUser] Re-linked account to new Clerk ID via phone");
+        return relinked ?? byPhone;
+      }
+    } catch (err: any) {
+      logger.warn({ phone, detail: pgErrorDetail(err) }, "[getOrCreateUser] Phone re-link lookup failed — will create new user");
     }
   }
 
@@ -143,9 +164,31 @@ async function writeAuditLog(actorClerkId: string, action: string, entityType: s
 
 router.get("/me", requireAuth, async (req: any, res): Promise<void> => {
   const clerkUserId = (req as AuthedRequest).clerkUserId;
+  // Fetch Clerk user up front so we can pass email + phone to getOrCreateUser for re-linking.
+  // This handles migration from email-based auth (old Clerk instance) to phone-based auth (new instance).
+  let clerkUser: any = null;
+  try {
+    clerkUser = await (clerkClient as any).users.getUser(clerkUserId);
+  } catch (err) {
+    logger.warn({ err }, "[GET /me] Clerk user fetch failed — proceeding without Clerk data");
+  }
+
+  const emailAddresses: Array<{ id: string; emailAddress: string }> = clerkUser?.emailAddresses ?? [];
+  const primaryEmailId: string | null = clerkUser?.primaryEmailAddressId ?? null;
+  const clerkEmail: string | null = primaryEmailId
+    ? (emailAddresses.find((e) => e.id === primaryEmailId)?.emailAddress ?? null)
+    : (emailAddresses[0]?.emailAddress ?? null);
+  const normalizedClerkEmail = clerkEmail ? clerkEmail.trim().toLowerCase() : null;
+
+  const phoneNumbers: Array<{ id: string; phoneNumber: string }> = clerkUser?.phoneNumbers ?? [];
+  const primaryPhoneId: string | null = clerkUser?.primaryPhoneNumberId ?? null;
+  const clerkPhone: string | null = primaryPhoneId
+    ? (phoneNumbers.find((p) => p.id === primaryPhoneId)?.phoneNumber ?? null)
+    : (phoneNumbers[0]?.phoneNumber ?? null);
+
   let user: any;
   try {
-    user = await getOrCreateUser(clerkUserId);
+    user = await getOrCreateUser(clerkUserId, normalizedClerkEmail ?? undefined, clerkPhone ?? undefined);
   } catch (err: any) {
     logger.error({ detail: pgErrorDetail(err) }, "[GET /me] getOrCreateUser failed");
     res.status(500).json({ error: "Failed to load profile. Please contact support." });
@@ -156,18 +199,9 @@ router.get("/me", requireAuth, async (req: any, res): Promise<void> => {
   // Strict null check — an empty string means the user deliberately cleared the field.
   if (user.firstName === null) {
     try {
-      const clerkUser = await (clerkClient as any).users.getUser(clerkUserId);
       const firstName = clerkUser?.firstName ?? null;
       const lastName = clerkUser?.lastName ?? null;
       const avatarUrl = clerkUser?.imageUrl ?? null;
-
-      // Resolve the real email from Clerk (used for guest-spot linking and email backfill)
-      const emailAddresses: Array<{ id: string; emailAddress: string }> = clerkUser?.emailAddresses ?? [];
-      const primaryEmailId: string | null = clerkUser?.primaryEmailAddressId ?? null;
-      const clerkEmail: string | null = primaryEmailId
-        ? (emailAddresses.find((e) => e.id === primaryEmailId)?.emailAddress ?? null)
-        : (emailAddresses[0]?.emailAddress ?? null);
-      const normalizedClerkEmail = clerkEmail ? clerkEmail.trim().toLowerCase() : null;
 
       const updates: Record<string, any> = {};
       if (firstName !== null) updates.firstName = firstName;
