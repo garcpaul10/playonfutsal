@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import React, { useState } from "react";
 import { Redirect, Link } from "wouter";
 import { useGetMyProfile } from "@workspace/api-client-react";
@@ -25,7 +26,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
 const STATUS_COLORS: Record<string, { bg: string; label: string }> = {
   upcoming:          { bg: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",         label: "Upcoming" },

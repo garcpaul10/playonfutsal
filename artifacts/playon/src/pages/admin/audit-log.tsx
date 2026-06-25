@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import React, { useState, useRef, useEffect } from "react";
 import { Redirect } from "wouter";
 import { useGetMyProfile } from "@workspace/api-client-react";
@@ -143,7 +144,6 @@ function ActorSearch({ value, onChange }: { value: string; onChange: (clerkId: s
   const [open, setOpen] = useState(false);
   const { getToken } = useAuth();
   const ref = useRef<HTMLDivElement>(null);
-  const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
   const { data: results } = useQuery<UserSearchResult[]>({
     queryKey: ["user-search", text],
@@ -232,7 +232,6 @@ export default function AdminAuditLog() {
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [exporting, setExporting] = useState(false);
 
-  const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
   const params = new URLSearchParams();
   if (entityType) params.set("entityType", entityType);

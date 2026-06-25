@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import React, { useEffect, useRef, useState } from "react";
 import { useAuth, useUser, Show } from "@clerk/react";
 import { useGetMyProfile, useUpdateMyProfile } from "@workspace/api-client-react";
@@ -23,7 +24,6 @@ import {
 } from "lucide-react";
 import QRCodeLib from "qrcode";
 
-const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
 type Tab = "profile" | "qr" | "notifications" | "history";
 

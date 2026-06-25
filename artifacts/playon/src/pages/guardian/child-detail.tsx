@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import React, { useState } from "react";
 import { Link, useParams, Redirect } from "wouter";
 import { useGetMyProfile } from "@workspace/api-client-react";
@@ -30,7 +31,6 @@ import { ArrowLeft, AlertCircle, CalendarDays, Trophy, Tent, Zap, Pencil, Shield
 import { useToast } from "@/hooks/use-toast";
 import { InlinePaymentDialog } from "@/components/inline-payment-dialog";
 
-const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
 const USYS_AGE_GROUPS = [
   "u8","u9","u10","u11","u12","u13","u14","u15","u16","u17","u18","u19","adult",

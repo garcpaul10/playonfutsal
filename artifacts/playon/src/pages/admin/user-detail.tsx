@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import React, { useState } from "react";
 import { Redirect, Link } from "wouter";
 import { useGetMyProfile } from "@workspace/api-client-react";
@@ -28,7 +29,6 @@ import {
   DollarSign, Copy, Eye, Loader2,
 } from "lucide-react";
 
-const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
 function fmt(n: number) {
   return n.toLocaleString("en-US", { style: "currency", currency: "USD" });

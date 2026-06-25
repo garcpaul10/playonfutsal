@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@clerk/react";
@@ -8,7 +9,6 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { CheckCircle2, Loader2, ArrowLeft, RefreshCw } from "lucide-react";
 
-const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
 function getParams() {
   const sp = new URLSearchParams(window.location.search);

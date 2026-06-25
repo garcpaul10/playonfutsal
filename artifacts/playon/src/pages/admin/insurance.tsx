@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import { useState } from "react";
 import { useAuth } from "@clerk/react";
 import { useGetMyProfile } from "@workspace/api-client-react";
@@ -14,7 +15,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ShieldCheck, AlertTriangle, CheckCircle2, XCircle, Clock } from "lucide-react";
 
-const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
 interface VenueInsurance {
   id: number;

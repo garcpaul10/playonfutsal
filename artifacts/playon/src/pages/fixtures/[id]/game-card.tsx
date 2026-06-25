@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import React from "react";
 import { useRoute, useLocation } from "wouter";
 import { useAuth } from "@clerk/react";
@@ -9,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Shield, Users, ChevronLeft } from "lucide-react";
 
-const API_BASE = "/api";
 
 export default function FixtureGameCardPage() {
   const [, params] = useRoute("/fixtures/:id/game-card");

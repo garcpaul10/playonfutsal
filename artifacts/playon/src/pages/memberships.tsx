@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/react";
@@ -10,7 +11,6 @@ import { Crown, CheckCircle2, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { InlinePaymentDialog } from "@/components/inline-payment-dialog";
 
-const API_BASE = import.meta.env.VITE_API_URL ?? "/api";
 
 export default function MembershipsPage() {
   const { isSignedIn } = useAuth();

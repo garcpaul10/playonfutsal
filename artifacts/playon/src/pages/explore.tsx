@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import React, { useState, useEffect, useMemo } from "react";
 import { Link, useLocation } from "wouter";
 import { Layout } from "@/components/layout";
@@ -16,7 +17,6 @@ import {
   isDropinRegistrationOpen,
 } from "@/components/event-card";
 
-const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
 type ProgramType = "all" | "league" | "camp" | "drop_in" | "tournament" | "kotc";
 

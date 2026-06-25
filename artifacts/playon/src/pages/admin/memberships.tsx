@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Layout } from "@/components/layout";
@@ -24,7 +25,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CreditCard, Users, Plus, Pencil, Trash2, Crown, CheckCircle2, XCircle, SlidersHorizontal } from "lucide-react";
 import { format } from "date-fns";
 
-const API_BASE = import.meta.env.VITE_API_URL ?? "/api";
 
 function statusBadge(status: string) {
   if (status === "active") return <Badge className="bg-green-100 text-green-800 border-green-200"><CheckCircle2 className="h-3 w-3 mr-1" />Active</Badge>;

@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import React, { useEffect, useState } from "react";
 import { useAuth } from "@clerk/react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -23,7 +24,6 @@ import { WaiverSignature, type SignatureResult } from "@/components/waiver-signa
 import QRCode from "qrcode";
 import { format } from "date-fns";
 
-const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
 interface UpcomingEvent {
   type: string;

@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import React, { useEffect, useState } from "react";
 import { useUser } from "@clerk/react";
 import { useGetMyProfile } from "@workspace/api-client-react";
@@ -9,7 +10,6 @@ import { Layout } from "@/components/layout";
 import { Sun, Moon, ArrowLeft, CheckCircle2, ChevronDown } from "lucide-react";
 import QRCode from "qrcode";
 
-const API_BASE = import.meta.env.VITE_API_URL ?? "/api";
 
 type WalletStatus = "idle" | "loading" | "unavailable";
 

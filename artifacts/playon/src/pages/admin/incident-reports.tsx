@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import { useState } from "react";
 import { useAuth } from "@clerk/react";
 import { useGetMyProfile } from "@workspace/api-client-react";
@@ -17,7 +18,6 @@ import { format } from "date-fns";
 import { toEasternISOString } from "@/lib/timezone";
 import { FileWarning, Plus, ChevronDown, ChevronUp, MessageSquare } from "lucide-react";
 
-const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
 interface IncidentReport {
   id: number;

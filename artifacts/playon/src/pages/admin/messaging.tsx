@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@clerk/react";
 import { AdminLayout } from "@/components/admin-layout";
@@ -15,7 +16,6 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 
-const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
 interface Recipient {
   id: number;

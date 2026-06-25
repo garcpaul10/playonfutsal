@@ -1,9 +1,9 @@
+import { API_BASE } from "@/lib/api-base";
 import { useEffect, useState } from "react";
 import { Layout } from "@/components/layout";
 import { Trophy, Medal, Star, TrendingUp, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 
-const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
 interface LeaderboardEntry {
   rank: number;

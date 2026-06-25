@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import React, { useEffect, useRef, useCallback, useState } from "react";
 import { DashboardTabContext } from "@/contexts/dashboard-tab-context";
 import { ClerkProvider, HandleSSOCallback, useClerk, useAuth } from '@clerk/react';
@@ -16,7 +17,6 @@ import { OfflineShell } from "@/components/OfflineShell";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 
-const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
 const clerkPubKey = publishableKeyFromHost(
   window.location.hostname,

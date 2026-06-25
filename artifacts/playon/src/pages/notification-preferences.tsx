@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@clerk/react";
 import { Layout } from "@/components/layout";
@@ -17,7 +18,6 @@ import {
   AlertCircle,
 } from "lucide-react";
 
-const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined;
 
 interface NotifPref {

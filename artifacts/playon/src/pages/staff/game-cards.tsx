@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import React, { useState } from "react";
 import { Redirect, Link } from "wouter";
 import { useGetMyProfile } from "@workspace/api-client-react";
@@ -11,7 +12,6 @@ import { useAuth } from "@clerk/react";
 import { format } from "date-fns";
 import { ClipboardList, Calendar, MapPin, Users, ChevronRight, AlertTriangle } from "lucide-react";
 
-const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
 interface GameCard {
   id: number;

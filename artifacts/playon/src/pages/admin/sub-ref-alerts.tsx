@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import { useEffect, useState } from "react";
 import { useAuth } from "@clerk/react";
 import { Layout } from "@/components/layout";
@@ -19,7 +20,6 @@ import { useToast } from "@/hooks/use-toast";
 import { AlertTriangle, Plus, Users, CheckCircle2, XCircle, Clock, Loader2, MessageSquare } from "lucide-react";
 import { toEasternISOString } from "@/lib/timezone";
 
-const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
 interface SubRefAlert {
   id: number;

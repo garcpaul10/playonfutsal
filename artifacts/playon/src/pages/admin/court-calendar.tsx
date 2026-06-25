@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import { useState } from "react";
 import { useAuth } from "@clerk/react";
 import { useGetMyProfile } from "@workspace/api-client-react";
@@ -16,7 +17,6 @@ import { format, addDays } from "date-fns";
 import { toEasternISOString } from "@/lib/timezone";
 import { CalendarDays, Lock, Trash2, AlertTriangle, Users, Tent, RefreshCw } from "lucide-react";
 
-const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
 interface CourtBlock {
   id: number;

@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth, useUser, Show } from "@clerk/react";
@@ -31,7 +32,6 @@ import {
 import { format } from "date-fns";
 import { formatEastern } from "@/lib/timezone";
 
-const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
 type Tab = "activity" | "family" | "memberships" | "referrals" | "assistant";
 

@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import React, { useState, useEffect, useRef } from "react";
 import { Redirect, Link, useParams } from "wouter";
 import { useGetMyProfile } from "@workspace/api-client-react";
@@ -19,7 +20,6 @@ import {
   RefreshCw,
 } from "lucide-react";
 
-const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
 interface RosterPlayer {
   userId: string;

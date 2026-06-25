@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import React, { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
 import { useGetMyProfile } from "@workspace/api-client-react";
@@ -12,7 +13,6 @@ import { useAuth } from "@clerk/react";
 import { format } from "date-fns";
 import { Minus, Plus, Flag, Clock, RefreshCw, Trash2, ArrowLeft } from "lucide-react";
 
-const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
 interface GameEventsResponse {
   fixtureId: number;

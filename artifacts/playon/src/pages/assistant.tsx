@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useAuth } from "@clerk/react";
 import { Layout } from "@/components/layout";
@@ -15,7 +16,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const API_BASE = "/api";
 
 interface ChatMessage {
   role: "user" | "assistant";

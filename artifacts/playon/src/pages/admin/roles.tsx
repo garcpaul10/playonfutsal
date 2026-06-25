@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import React, { useState } from "react";
 import { Redirect } from "wouter";
 import { useGetMyProfile } from "@workspace/api-client-react";
@@ -19,7 +20,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/react";
 import { Search, Shield, ShieldAlert, AlertTriangle, UserCog } from "lucide-react";
 
-const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
 const VALID_ROLES = ["player", "parent", "ref", "coach", "scorekeeper", "staff", "admin"] as const;
 type ValidRole = typeof VALID_ROLES[number];

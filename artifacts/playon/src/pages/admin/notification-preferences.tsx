@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import { useState } from "react";
 import { useAuth } from "@clerk/react";
 import { Layout } from "@/components/layout";
@@ -11,7 +12,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { Bell, Search, Loader2, Mail, MessageSquare, Smartphone } from "lucide-react";
 
-const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
 interface UserResult {
   id: number;

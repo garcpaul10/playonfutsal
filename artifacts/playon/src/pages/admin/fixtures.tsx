@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import { useState } from "react";
 import { useAuth } from "@clerk/react";
 import { useGetMyProfile } from "@workspace/api-client-react";
@@ -16,7 +17,6 @@ import { format } from "date-fns";
 import { CalendarClock, XCircle, RefreshCw, Search, Trash2, UserPlus, UserX } from "lucide-react";
 import { toEasternISOString, toEasternLocalString } from "@/lib/timezone";
 
-const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
 interface Fixture {
   id: number;

@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import React, { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@clerk/react";
@@ -9,7 +10,6 @@ import { PhoneInput } from "@/components/ui/phone-input";
 import { Loader2, Check, AlertCircle, Camera, Upload } from "lucide-react";
 import playonLogo from "@assets/PlayOn_RBG_Trans_1780083327599.png";
 
-const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
 const ROLE_OPTIONS = [
   {

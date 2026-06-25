@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import React, { useState } from "react";
 import { Redirect, Link } from "wouter";
 import { useGetMyProfile } from "@workspace/api-client-react";
@@ -80,7 +81,6 @@ interface UserRow {
   createdAt: string;
 }
 
-const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
 function ManagedTeamsSection({ clerkId }: { clerkId: string }) {
   const { getToken } = useAuth();

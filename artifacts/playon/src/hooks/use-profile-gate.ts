@@ -1,7 +1,7 @@
+import { API_BASE } from "@/lib/api-base";
 import { useCallback } from "react";
 import { useLocation } from "wouter";
 
-const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
 export interface ProfileGateResult {
   checkAndRedirect: () => Promise<void>;

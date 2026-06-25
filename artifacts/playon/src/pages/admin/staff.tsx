@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import React, { useState } from "react";
 import { Redirect, Link } from "wouter";
 import { useGetMyProfile } from "@workspace/api-client-react";
@@ -22,7 +23,6 @@ import { useAuth } from "@clerk/react";
 import { format } from "date-fns";
 import { CheckCircle2, Clock, Shield, ShieldAlert, Pencil, UserPlus, Search, ChevronRight, UserCog, Mail } from "lucide-react";
 
-const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
 interface StaffProfile {
   id: number;

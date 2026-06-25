@@ -1,7 +1,7 @@
+import { API_BASE } from "@/lib/api-base";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "@clerk/react";
 
-const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 const POLL_INTERVAL_MS = 15_000;
 
 export interface UserNotification {

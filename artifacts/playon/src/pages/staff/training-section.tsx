@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import React, { useState } from "react";
 import { Link, Redirect, useParams } from "wouter";
 import { useGetMyProfile } from "@workspace/api-client-react";
@@ -13,7 +14,6 @@ import {
 } from "lucide-react";
 import { TRAINING_SECTIONS, PASSING_SCORE } from "@/data/trainingContent";
 
-const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
 type Phase = "reading" | "quiz" | "result";
 

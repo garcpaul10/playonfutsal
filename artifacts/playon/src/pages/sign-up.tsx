@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "wouter";
 import { SignUp, useAuth } from "@clerk/react";
@@ -7,7 +8,6 @@ import playonLogo from "@assets/PlayOn_RBG_Trans_1780083327599.png";
 import { useProfileGate } from "@/hooks/use-profile-gate";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
-const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
 const PRIVILEGED_ROLE_LABELS: Record<string, string> = {
   ref: "Referee",

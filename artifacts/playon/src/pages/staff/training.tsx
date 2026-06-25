@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import React from "react";
 import { Link, Redirect } from "wouter";
 import { useGetMyProfile } from "@workspace/api-client-react";
@@ -11,7 +12,6 @@ import { GraduationCap, CheckCircle2, Circle, ChevronRight, Clock, BookOpen } fr
 import { TRAINING_SECTIONS, REQUIRED_SECTIONS } from "@/data/trainingContent";
 import { format } from "date-fns";
 
-const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
 interface TrainingStatus {
   isComplete: boolean;

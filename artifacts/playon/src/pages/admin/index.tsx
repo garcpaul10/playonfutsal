@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import React from "react";
 import { Redirect, Link } from "wouter";
 import { useGetMyProfile, useGetAdminStats, useListAdminActivity } from "@workspace/api-client-react";
@@ -12,7 +13,6 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 
-const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
 function StatCard({ icon: Icon, label, value, sub, accent }: {
   icon: React.ElementType;

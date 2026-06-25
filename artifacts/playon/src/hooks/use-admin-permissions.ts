@@ -1,8 +1,8 @@
+import { API_BASE } from "@/lib/api-base";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@clerk/react";
 import { useGetMyProfile } from "@workspace/api-client-react";
 
-const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
 type StaffProfile = Record<string, boolean | string | number | null>;
 

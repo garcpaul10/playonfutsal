@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import React, { useState } from "react";
 import { Redirect, Link } from "wouter";
 import { useGetMyProfile } from "@workspace/api-client-react";
@@ -21,7 +22,6 @@ import { format } from "date-fns";
 import { Search, Users, ChevronRight, ChevronLeft, Shield, ShieldCheck, UserCog, RefreshCw, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
-const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
 interface UserRow {
   id: number;
