@@ -9,6 +9,7 @@ import { QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { setAuthTokenGetter } from "@workspace/api-client-react";
 
 import { Layout } from "@/components/layout";
 import { PwaInstallBanner } from "@/components/PwaInstallBanner";
@@ -300,6 +301,15 @@ import KotcLeaderboardPage from "@/pages/kotc-leaderboard";
 import KotcSeasonDetailPage from "@/pages/kotc-season-detail";
 import FamilyDashboard from "@/pages/family/dashboard";
 
+function ClerkAuthTokenWirer() {
+  const { getToken, isSignedIn } = useAuth();
+  useEffect(() => {
+    setAuthTokenGetter(isSignedIn ? () => getToken() : null);
+    return () => setAuthTokenGetter(null);
+  }, [isSignedIn, getToken]);
+  return null;
+}
+
 function ReferralAutoClaimHandler() {
   const { isSignedIn, getToken } = useAuth();
   const prevSignedInRef = useRef<boolean | undefined>(undefined);
@@ -379,6 +389,7 @@ function ClerkProviderWithRoutes() {
       routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
     >
       <QueryClientProvider client={queryClient}>
+        <ClerkAuthTokenWirer />
         <ClerkQueryClientCacheInvalidator />
         <ReferralAutoClaimHandler />
         <DashboardTabContext.Provider value={{ activeDashTab, setActiveDashTab }}>
