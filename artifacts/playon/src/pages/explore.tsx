@@ -113,7 +113,7 @@ export default function ExplorePage() {
     let hasYouth = false;
     let hasAdult = false;
     programs.forEach((p: any) => {
-      const groups: string[] = Array.isArray(p.ageGroup) ? p.ageGroup : p.ageGroup ? [p.ageGroup] : [];
+      const groups: string[] = Array.isArray(p.ageGroup) ? p.ageGroup : p.ageGroup ? p.ageGroup.split(",").map((g: string) => g.trim()) : [];
       groups.forEach((g) => {
         if (g === "adult") hasAdult = true;
         else hasYouth = true;
@@ -129,7 +129,7 @@ export default function ExplorePage() {
   const filtered = useMemo(() => {
     return (programs ?? []).filter((p: any) => {
       if (ageFilter !== "all") {
-        const groups: string[] = Array.isArray(p.ageGroup) ? p.ageGroup : p.ageGroup ? [p.ageGroup] : [];
+        const groups: string[] = Array.isArray(p.ageGroup) ? p.ageGroup : p.ageGroup ? p.ageGroup.split(",").map((g: string) => g.trim()) : [];
         if (ageFilter === "youth") {
           if (!groups.some((g) => g !== "adult")) return false;
         } else if (ageFilter === "adult") {
