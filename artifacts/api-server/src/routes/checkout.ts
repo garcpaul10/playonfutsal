@@ -507,9 +507,9 @@ router.post("/checkout/session", requireAuth, async (req: Request, res): Promise
           quantity: 1,
         }],
         metadata: sharedMeta,
-        customer_email: dbUser?.email ?? undefined,
+        customer_email: dbUser?.email || undefined,
         payment_intent_data: {
-          receipt_email: dbUser?.email ?? undefined,
+          receipt_email: dbUser?.email || undefined,
           metadata: sharedMeta,
         },
       });
