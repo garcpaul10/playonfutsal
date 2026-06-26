@@ -1,5 +1,5 @@
 import { API_BASE } from "@/lib/api-base";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@clerk/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { PhoneInput } from "@/components/ui/phone-input";
-import { Loader2, Check, AlertCircle, Camera, Upload } from "lucide-react";
+import { Loader2, Check, AlertCircle } from "lucide-react";
 import playonLogo from "@assets/PlayOn_RBG_Trans_1780083327599.png";
 
 
@@ -86,13 +86,9 @@ export default function OnboardingPage() {
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
   const [zip, setZip] = useState("");
-  const [idPhotoFile, setIdPhotoFile] = useState<File | null>(null);
-  const [idPhotoPreview, setIdPhotoPreview] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const photoInputRef = useRef<HTMLInputElement>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const { data: myProfile, isLoading: profileLoading } = useMyProfile(!!isSignedIn && isLoaded);
 
@@ -161,14 +157,6 @@ export default function OnboardingPage() {
     });
   }
 
-  function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setIdPhotoFile(file);
-    const url = URL.createObjectURL(file);
-    setIdPhotoPreview(url);
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
@@ -187,7 +175,6 @@ export default function OnboardingPage() {
     if (!city.trim()) { setError("Please enter your city."); return; }
     if (!state.trim()) { setError("Please enter your state (2-letter code)."); return; }
     if (!/^\d{5}$/.test(zip.trim())) { setError("Please enter a valid 5-digit ZIP code."); return; }
-    if (!idPhotoFile) { setError("Please upload a photo of your government-issued ID."); return; }
     if (!confirmed) { setError("Please confirm that your information is accurate."); return; }
 
     let finalRoles: string[];
@@ -215,23 +202,7 @@ export default function OnboardingPage() {
         );
       }
 
-      // Step 1: upload ID photo (optional — failures are logged but don't block onboarding)
-      if (idPhotoFile) {
-        const photoFormData = new FormData();
-        photoFormData.append("photo", idPhotoFile);
-        try {
-          await fetchWithTimeout(`${API_BASE}/me/id-photo`, {
-            method: "POST",
-            credentials: "include",
-            headers: { Authorization: `Bearer ${token}` },
-            body: photoFormData,
-          });
-        } catch {
-          // Non-blocking — admin can request photo later
-        }
-      }
-
-      // Step 2: PATCH /me — profile fields
+      // Step 1: PATCH /me — profile fields
       const patchRes = await fetchWithTimeout(`${API_BASE}/me`, {
         method: "PATCH",
         credentials: "include",
@@ -250,7 +221,7 @@ export default function OnboardingPage() {
         throw new Error(bd?.error ?? `Server error ${patchRes.status}`);
       }
 
-      // Step 3: POST /me/verify-id — identity verification fields
+      // Step 2: POST /me/verify-id — identity verification fields
       const signupInviteToken = sessionStorage.getItem("signupInviteToken");
       const verifyBody: Record<string, string> = {
         firstName: firstName.trim(),
@@ -273,7 +244,6 @@ export default function OnboardingPage() {
       if (!verifyRes.ok) {
         const bd = await verifyRes.json().catch(() => ({}));
         let errMsg: string = bd?.error ?? `Verification failed (${verifyRes.status})`;
-        // Rewrite the generic age error to the correct minimum age for this path
         if (verifyRes.status === 403 && errMsg.includes("must be") && errMsg.includes("or older")) {
           const minAge = signupInviteToken ? 13 : 18;
           errMsg = `Identity verification failed: must be ${minAge} or older to create an account.`;
@@ -294,7 +264,6 @@ export default function OnboardingPage() {
   }
 
   const showsCoachManager = selectedRoles.has("coach_manager");
-  const isReturningUser = !!(myProfile && Array.isArray(myProfile.roles) && myProfile.roles.length > 0 && !myProfile.idVerified);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[hsl(195,14%,14%)] px-4 py-12">
@@ -307,13 +276,9 @@ export default function OnboardingPage() {
 
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
-                <h2 className="text-xl font-bold text-white mb-1">
-                  {isReturningUser ? "Complete your account" : "Almost done!"}
-                </h2>
+                <h2 className="text-xl font-bold text-white mb-1">Almost done!</h2>
                 <p className="text-[#99a1a3] text-sm">
-                  {isReturningUser
-                    ? "Please add your address and upload a government-issued ID to finish verification."
-                    : "Set up your profile and verify your identity to get started."}
+                  Set up your profile to get started.
                 </p>
               </div>
 
@@ -479,7 +444,6 @@ export default function OnboardingPage() {
               <div className="space-y-3">
                 <div>
                   <Label className="text-white text-sm font-medium block mb-1">Home address</Label>
-                  <p className="text-[#99a1a3] text-xs mb-2">Must match your government-issued ID.</p>
                 </div>
                 <Input
                   type="text"
@@ -522,83 +486,6 @@ export default function OnboardingPage() {
                 />
               </div>
 
-              {/* ID photo upload */}
-              <div className="space-y-2">
-                <Label className="text-white text-sm font-medium block">Government-issued ID photo</Label>
-                <p className="text-[#99a1a3] text-xs">Upload a clear photo of your driver's license or passport. JPEG or PNG, max 10 MB.</p>
-                {idPhotoPreview ? (
-                  <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 space-y-3">
-                    <img
-                      src={idPhotoPreview}
-                      alt="ID preview"
-                      className="max-h-40 w-full object-contain rounded-lg"
-                    />
-                    <p className="text-primary text-xs text-center font-medium">
-                      <Check className="h-3 w-3 inline mr-1" />
-                      Photo selected
-                    </p>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => cameraInputRef.current?.click()}
-                        className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-[#2b4040] bg-[#1a2a2a] hover:bg-[#1e3030] transition-colors py-2 text-xs text-white font-medium"
-                      >
-                        <Camera className="h-4 w-4 text-[#99a1a3]" />
-                        Retake photo
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => photoInputRef.current?.click()}
-                        className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-[#2b4040] bg-[#1a2a2a] hover:bg-[#1e3030] transition-colors py-2 text-xs text-white font-medium"
-                      >
-                        <Upload className="h-4 w-4 text-[#99a1a3]" />
-                        Choose file
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex gap-3">
-                    <button
-                      type="button"
-                      onClick={() => cameraInputRef.current?.click()}
-                      className="flex-1 flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[#2b4040] bg-[#1a2a2a] hover:bg-[#1e3030] hover:border-[#3a5050] transition-colors py-6"
-                    >
-                      <div className="w-10 h-10 rounded-full bg-[#1e3030] flex items-center justify-center">
-                        <Camera className="h-5 w-5 text-[#99a1a3]" />
-                      </div>
-                      <p className="text-white text-sm font-medium">Take a photo</p>
-                      <p className="text-[#99a1a3] text-xs">Use camera</p>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => photoInputRef.current?.click()}
-                      className="flex-1 flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[#2b4040] bg-[#1a2a2a] hover:bg-[#1e3030] hover:border-[#3a5050] transition-colors py-6"
-                    >
-                      <div className="w-10 h-10 rounded-full bg-[#1e3030] flex items-center justify-center">
-                        <Upload className="h-5 w-5 text-[#99a1a3]" />
-                      </div>
-                      <p className="text-white text-sm font-medium">Upload from files</p>
-                      <p className="text-[#99a1a3] text-xs">JPEG or PNG</p>
-                    </button>
-                  </div>
-                )}
-                <input
-                  ref={cameraInputRef}
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={handlePhotoChange}
-                  className="hidden"
-                />
-                <input
-                  ref={photoInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png"
-                  onChange={handlePhotoChange}
-                  className="hidden"
-                />
-              </div>
-
               {/* Confirmation checkbox */}
               <label className="flex items-start gap-3 cursor-pointer group">
                 <div
@@ -612,7 +499,7 @@ export default function OnboardingPage() {
                   {confirmed && <Check className="h-3 w-3 text-white" />}
                 </div>
                 <span className="text-[#99a1a3] text-sm leading-snug">
-                  I confirm this information is accurate and matches my government-issued ID.
+                  I confirm this information is accurate.
                 </span>
               </label>
 
@@ -630,10 +517,6 @@ export default function OnboardingPage() {
               >
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Complete setup →"}
               </Button>
-
-              <p className="text-[#99a1a3] text-xs text-center">
-                Your ID photo is stored securely and only accessible to PlayOn administrators.
-              </p>
             </form>
           </div>
         </div>
