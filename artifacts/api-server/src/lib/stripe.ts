@@ -1,6 +1,14 @@
 import Stripe from "stripe";
 
 async function getCredentials() {
+  // Prefer explicit env vars (Railway / any non-Replit host)
+  const envSecret = process.env.STRIPE_SECRET_KEY;
+  const envPublishable = process.env.STRIPE_PUBLISHABLE_KEY;
+  if (envSecret && envPublishable) {
+    return { secretKey: envSecret, publishableKey: envPublishable };
+  }
+
+  // Fallback: Replit connector (used when running on Replit)
   const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
   const xReplitToken = process.env.REPL_IDENTITY
     ? "repl " + process.env.REPL_IDENTITY
@@ -9,21 +17,14 @@ async function getCredentials() {
       : null;
 
   if (!xReplitToken || !hostname) {
-    throw new Error("Stripe connector env vars not found (REPLIT_CONNECTORS_HOSTNAME / REPL_IDENTITY)");
+    throw new Error("Stripe keys not configured: set STRIPE_SECRET_KEY and STRIPE_PUBLISHABLE_KEY env vars");
   }
 
   const connectorName = "stripe";
   const isProduction = process.env.REPLIT_DEPLOYMENT === "1";
-
-  // STRIPE_TEST_MODE: set to "true" in production secrets to force test (development)
-  // Stripe keys even on the deployed app. Remove or set to "false" to restore live mode.
-  // No code changes are needed — toggling this secret is enough to switch modes.
   const testModeOverride = process.env.STRIPE_TEST_MODE === "true";
   if (isProduction && testModeOverride) {
-    console.warn("[Stripe] STRIPE_TEST_MODE=true — using test keys (development connection) in production");
-  } else {
-    const activeMode = isProduction ? "production (live keys)" : "development (test keys)";
-    console.log(`[Stripe] mode: ${activeMode}`);
+    console.warn("[Stripe] STRIPE_TEST_MODE=true — using test keys in production");
   }
 
   const targetEnvironment = (isProduction && !testModeOverride) ? "production" : "development";
