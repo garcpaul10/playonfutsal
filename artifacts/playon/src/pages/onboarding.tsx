@@ -215,18 +215,20 @@ export default function OnboardingPage() {
         );
       }
 
-      // Step 1: upload ID photo
-      const photoFormData = new FormData();
-      photoFormData.append("photo", idPhotoFile);
-      const photoRes = await fetchWithTimeout(`${API_BASE}/me/id-photo`, {
-        method: "POST",
-        credentials: "include",
-        headers: { Authorization: `Bearer ${token}` },
-        body: photoFormData,
-      });
-      if (!photoRes.ok) {
-        const bd = await photoRes.json().catch(() => ({}));
-        throw new Error(bd?.error ?? `Photo upload failed (${photoRes.status})`);
+      // Step 1: upload ID photo (optional — failures are logged but don't block onboarding)
+      if (idPhotoFile) {
+        const photoFormData = new FormData();
+        photoFormData.append("photo", idPhotoFile);
+        try {
+          await fetchWithTimeout(`${API_BASE}/me/id-photo`, {
+            method: "POST",
+            credentials: "include",
+            headers: { Authorization: `Bearer ${token}` },
+            body: photoFormData,
+          });
+        } catch {
+          // Non-blocking — admin can request photo later
+        }
       }
 
       // Step 2: PATCH /me — profile fields
