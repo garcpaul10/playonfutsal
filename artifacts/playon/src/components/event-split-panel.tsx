@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/react";
@@ -103,7 +104,7 @@ export function EventSplitPanel({ offeringType, offeringId, venueId, eventName, 
     queryFn: async () => {
       const headers = await authHeader();
       const params = new URLSearchParams({ offeringType, offeringId: String(offeringId) });
-      const res = await fetch(`/api/admin/facility-split-rules?${params}`, { headers });
+      const res = await fetch(`${API_BASE}/admin/facility-split-rules?${params}`, { headers });
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
@@ -115,7 +116,7 @@ export function EventSplitPanel({ offeringType, offeringId, venueId, eventName, 
       if (!venueId) return [];
       const headers = await authHeader();
       const params = new URLSearchParams({ venueId: String(venueId) });
-      const res = await fetch(`/api/admin/facility-split-rules?${params}`, { headers });
+      const res = await fetch(`${API_BASE}/admin/facility-split-rules?${params}`, { headers });
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
@@ -155,7 +156,7 @@ export function EventSplitPanel({ offeringType, offeringId, venueId, eventName, 
         if (effectiveRule.flatFee) previewPayload.flatFee = Number(effectiveRule.flatFee);
         previewPayload.flatFeeUnit = effectiveRule.flatFeeUnit ?? null;
       }
-      const res = await fetch("/api/admin/facility-split-rules/preview", {
+      const res = await fetch(`${API_BASE}/admin/facility-split-rules/preview`, {
         method: "POST",
         headers,
         body: JSON.stringify(previewPayload),
@@ -183,13 +184,13 @@ export function EventSplitPanel({ offeringType, offeringId, venueId, eventName, 
         notes: form.notes || null,
       };
       if (editingId) {
-        const res = await fetch(`/api/admin/facility-split-rules/${editingId}`, {
+        const res = await fetch(`${API_BASE}/admin/facility-split-rules/${editingId}`, {
           method: "PATCH", headers, body: JSON.stringify(payload),
         });
         if (!res.ok) { const e = await res.json(); throw new Error(e.error ?? "Failed"); }
         return res.json();
       } else {
-        const res = await fetch("/api/admin/facility-split-rules", {
+        const res = await fetch(`${API_BASE}/admin/facility-split-rules`, {
           method: "POST", headers, body: JSON.stringify(payload),
         });
         if (!res.ok) { const e = await res.json(); throw new Error(e.error ?? "Failed"); }
@@ -212,7 +213,7 @@ export function EventSplitPanel({ offeringType, offeringId, venueId, eventName, 
     mutationFn: async () => {
       if (!eventRule) return;
       const headers = await authHeader();
-      const res = await fetch(`/api/admin/facility-split-rules/${eventRule.id}`, { method: "DELETE", headers });
+      const res = await fetch(`${API_BASE}/admin/facility-split-rules/${eventRule.id}`, { method: "DELETE", headers });
       if (!res.ok && res.status !== 204) {
         const e = await res.json().catch(() => ({}));
         throw new Error((e as any).error ?? "Failed to remove override");

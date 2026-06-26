@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import React, { useState } from "react";
 import { Redirect } from "wouter";
 import { useGetMyProfile } from "@workspace/api-client-react";
@@ -82,7 +83,7 @@ export default function StaffEarnings() {
     enabled: isStaff,
     queryFn: async () => {
       const token = await getToken();
-      const res = await fetch("/api/staff/connect/status", {
+      const res = await fetch(`${API_BASE}/staff/connect/status`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error("Failed to load Connect status");
@@ -95,7 +96,7 @@ export default function StaffEarnings() {
     enabled: isStaff,
     queryFn: async () => {
       const token = await getToken();
-      const res = await fetch("/api/staff/payouts/owed/me", {
+      const res = await fetch(`${API_BASE}/staff/payouts/owed/me`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error("Failed to load owed amounts");
@@ -108,7 +109,7 @@ export default function StaffEarnings() {
     enabled: isStaff,
     queryFn: async () => {
       const token = await getToken();
-      const res = await fetch("/api/staff/payouts/me", {
+      const res = await fetch(`${API_BASE}/staff/payouts/me`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error("Failed to load payout history");
@@ -120,7 +121,7 @@ export default function StaffEarnings() {
     setOnboardingLoading(true);
     try {
       const token = await getToken();
-      const res = await fetch("/api/staff/connect/onboard", {
+      const res = await fetch(`${API_BASE}/staff/connect/onboard`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -141,7 +142,7 @@ export default function StaffEarnings() {
     setOnboardingLoading(true);
     try {
       const token = await getToken();
-      const res = await fetch("/api/staff/connect/refresh", {
+      const res = await fetch(`${API_BASE}/staff/connect/refresh`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });

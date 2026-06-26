@@ -328,7 +328,7 @@ function ReferralAutoClaimHandler() {
       if (code) {
         getToken().then(token => {
           if (!token) return;
-          return fetch("/api/referrals/claim", {
+          return fetch(`${API_BASE}/referrals/claim`, {
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
             body: JSON.stringify({ code }),

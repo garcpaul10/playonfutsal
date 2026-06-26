@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import React, { useState } from "react";
 import { Redirect } from "wouter";
 import { useGetMyProfile } from "@workspace/api-client-react";
@@ -61,7 +62,7 @@ export default function AdminRefundPolicies() {
     queryKey: ["refund-policies"],
     queryFn: async () => {
       const token = await getToken();
-      const res = await fetch("/api/admin/refund-policies", { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch(`${API_BASE}/admin/refund-policies`, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
@@ -70,7 +71,7 @@ export default function AdminRefundPolicies() {
   const createMutation = useMutation({
     mutationFn: async (payload: Record<string, unknown>) => {
       const headers = await authH();
-      const res = await fetch("/api/admin/refund-policies", { method: "POST", headers, body: JSON.stringify(payload) });
+      const res = await fetch(`${API_BASE}/admin/refund-policies`, { method: "POST", headers, body: JSON.stringify(payload) });
       if (!res.ok) { const e = await res.json(); throw new Error(e.error ?? "Failed"); }
       return res.json();
     },
@@ -86,7 +87,7 @@ export default function AdminRefundPolicies() {
   const updateMutation = useMutation({
     mutationFn: async ({ id, payload }: { id: number; payload: Record<string, unknown> }) => {
       const headers = await authH();
-      const res = await fetch(`/api/admin/refund-policies/${id}`, { method: "PATCH", headers, body: JSON.stringify(payload) });
+      const res = await fetch(`${API_BASE}/admin/refund-policies/${id}`, { method: "PATCH", headers, body: JSON.stringify(payload) });
       if (!res.ok) { const e = await res.json(); throw new Error(e.error ?? "Failed"); }
       return res.json();
     },
@@ -102,7 +103,7 @@ export default function AdminRefundPolicies() {
   const deactivateMutation = useMutation({
     mutationFn: async (id: number) => {
       const token = await getToken();
-      await fetch(`/api/admin/refund-policies/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token ?? ""}` } });
+      await fetch(`${API_BASE}/admin/refund-policies/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token ?? ""}` } });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["refund-policies"] });

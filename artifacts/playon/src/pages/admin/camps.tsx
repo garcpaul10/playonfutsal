@@ -73,7 +73,7 @@ function VisibilityToggleGroup({ eventType, eventId, isPublished, isFeatured, sh
   const patchVisibility = useMutation({
     mutationFn: async (patch: { isPublished?: boolean; isFeatured?: boolean; showOnMobile?: boolean }) => {
       const headers = await getHeaders();
-      const r = await fetch(`/api/programs/${eventType}s/${eventId}/visibility`, {
+      const r = await fetch(`${API_BASE}/programs/${eventType}s/${eventId}/visibility`, {
         method: "PATCH", headers, body: JSON.stringify(patch),
       });
       if (!r.ok) throw new Error(await r.text());

@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import React, { useState } from "react";
 import { Redirect, Link, useLocation } from "wouter";
 import { useGetMyProfile } from "@workspace/api-client-react";
@@ -140,7 +141,7 @@ export default function GuardianChildren() {
     enabled: !profileLoading && !!profile,
     queryFn: async () => {
       const token = await getToken();
-      const res = await fetch("/api/me/guardian-links", {
+      const res = await fetch(`${API_BASE}/me/guardian-links`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error("Failed to load children");
@@ -151,7 +152,7 @@ export default function GuardianChildren() {
   const createChild = useMutation({
     mutationFn: async () => {
       const token = await getToken();
-      const res = await fetch("/api/youth", {
+      const res = await fetch(`${API_BASE}/youth`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -198,7 +199,7 @@ export default function GuardianChildren() {
   const addLink = useMutation({
     mutationFn: async () => {
       const token = await getToken();
-      const res = await fetch("/api/guardians", {
+      const res = await fetch(`${API_BASE}/guardians`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -230,7 +231,7 @@ export default function GuardianChildren() {
   const removeLink = useMutation({
     mutationFn: async (id: number) => {
       const token = await getToken();
-      const res = await fetch(`/api/guardians/${id}`, {
+      const res = await fetch(`${API_BASE}/guardians/${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });

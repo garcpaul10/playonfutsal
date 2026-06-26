@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import React, { useState } from "react";
 import { Redirect } from "wouter";
 import { useGetMyProfile } from "@workspace/api-client-react";
@@ -98,7 +99,7 @@ export default function AdminPricing() {
   const { data: rules, isLoading } = useQuery<PricingRule[]>({
     queryKey: ["pricing-rules", activeTab],
     queryFn: async () => {
-      const res = await fetch(`/api/admin/pricing-rules?category=${activeTab}`);
+      const res = await fetch(`${API_BASE}/admin/pricing-rules?category=${activeTab}`);
       if (!res.ok) throw new Error("Failed to load");
       return res.json();
     },
@@ -128,7 +129,7 @@ export default function AdminPricing() {
   const deactivateMutation = useMutation({
     mutationFn: async (id: number) => {
       const headers = await authHeader();
-      const res = await fetch(`/api/admin/pricing-rules/${id}`, { method: "DELETE", headers });
+      const res = await fetch(`${API_BASE}/admin/pricing-rules/${id}`, { method: "DELETE", headers });
       if (!res.ok && res.status !== 204) throw new Error("Failed");
     },
     onSuccess: () => {

@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import React, { useState, useRef, useEffect } from "react";
 import { Redirect, Link } from "wouter";
 import { useGetMyProfile } from "@workspace/api-client-react";
@@ -247,7 +248,7 @@ export default function AdminAiAssistant() {
     queryKey: ["ai-creation-sessions"],
     queryFn: async () => {
       const token = await getToken();
-      const res = await fetch("/api/admin/ai/creation-sessions", {
+      const res = await fetch(`${API_BASE}/admin/ai/creation-sessions`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error("Failed to load sessions");
@@ -280,7 +281,7 @@ export default function AdminAiAssistant() {
 
     try {
       const token = await getToken();
-      const res = await fetch("/api/admin/ai/creation-agent", {
+      const res = await fetch(`${API_BASE}/admin/ai/creation-agent`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -327,7 +328,7 @@ export default function AdminAiAssistant() {
     setCreating(true);
     try {
       const token = await getToken();
-      const res = await fetch("/api/admin/ai/creation-agent/create", {
+      const res = await fetch(`${API_BASE}/admin/ai/creation-agent/create`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -362,7 +363,7 @@ export default function AdminAiAssistant() {
     setCreating(true);
     try {
       const token = await getToken();
-      const res = await fetch("/api/admin/ai/creation-agent/apply-edit", {
+      const res = await fetch(`${API_BASE}/admin/ai/creation-agent/apply-edit`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -396,7 +397,7 @@ export default function AdminAiAssistant() {
     setSending(true);
     try {
       const token = await getToken();
-      const res = await fetch("/api/admin/ai/creation-agent/load-for-edit", {
+      const res = await fetch(`${API_BASE}/admin/ai/creation-agent/load-for-edit`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ entityType, entityId }),
@@ -423,7 +424,7 @@ export default function AdminAiAssistant() {
 
   async function deleteSession(id: number) {
     const token = await getToken();
-    await fetch(`/api/admin/ai/creation-sessions/${id}`, {
+    await fetch(`${API_BASE}/admin/ai/creation-sessions/${id}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -433,7 +434,7 @@ export default function AdminAiAssistant() {
 
   async function loadSession(id: number) {
     const token = await getToken();
-    const res = await fetch(`/api/admin/ai/creation-sessions/${id}`, {
+    const res = await fetch(`${API_BASE}/admin/ai/creation-sessions/${id}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!res.ok) return;

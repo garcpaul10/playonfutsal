@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import React, { useState } from "react";
 import { Redirect } from "wouter";
 import { useGetMyProfile } from "@workspace/api-client-react";
@@ -58,7 +59,7 @@ export default function AdminRevenue() {
       if (category) params.set("category", category);
       if (from) params.set("from", from);
       if (to) params.set("to", to);
-      const res = await fetch(`/api/admin/revenue?${params}`, {
+      const res = await fetch(`${API_BASE}/admin/revenue?${params}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error("Failed");
@@ -70,7 +71,7 @@ export default function AdminRevenue() {
     queryKey: ["admin-memberships-active"],
     queryFn: async () => {
       const token = await getToken();
-      const res = await fetch(`/api/admin/memberships?status=active`, {
+      const res = await fetch(`${API_BASE}/admin/memberships?status=active`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) return [];
@@ -82,7 +83,7 @@ export default function AdminRevenue() {
   const { data: membershipPlans } = useQuery<any[]>({
     queryKey: ["membership-plans"],
     queryFn: async () => {
-      const res = await fetch(`/api/membership-plans`);
+      const res = await fetch(`${API_BASE}/membership-plans`);
       if (!res.ok) return [];
       return res.json();
     },

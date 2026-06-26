@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import React, { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@clerk/react";
@@ -26,7 +27,7 @@ export default function CheckoutComplete() {
     async function checkStatus() {
       try {
         const token = await getToken();
-        const res = await fetch(`/api/checkout/session-status?session_id=${encodeURIComponent(sessionId!)}`, {
+        const res = await fetch(`${API_BASE}/checkout/session-status?session_id=${encodeURIComponent(sessionId!)}`, {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
         if (cancelled) return;

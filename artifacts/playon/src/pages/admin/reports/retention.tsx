@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import React from "react";
 import { Redirect } from "wouter";
 import { useGetMyProfile } from "@workspace/api-client-react";
@@ -17,7 +18,7 @@ export default function RetentionReport() {
     queryKey: ["admin-report-retention"],
     queryFn: async () => {
       const token = await getToken();
-      const res = await fetch("/api/admin/reports/retention", {
+      const res = await fetch(`${API_BASE}/admin/reports/retention`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error("Failed");

@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import React, { useState } from "react";
 import { Redirect } from "wouter";
 import { useGetMyProfile } from "@workspace/api-client-react";
@@ -47,7 +48,7 @@ export default function AdminCourts() {
   const { data: courts, isLoading } = useQuery<Court[]>({
     queryKey: ["courts"],
     queryFn: async () => {
-      const res = await fetch("/api/courts");
+      const res = await fetch(`${API_BASE}/courts`);
       if (!res.ok) throw new Error("Failed to load courts");
       return res.json();
     },
@@ -62,7 +63,7 @@ export default function AdminCourts() {
     mutationFn: async () => {
       if (!newName.trim()) throw new Error("Name is required");
       const headers = await authHeader();
-      const res = await fetch("/api/courts", {
+      const res = await fetch(`${API_BASE}/courts`, {
         method: "POST",
         headers,
         body: JSON.stringify({ name: newName.trim(), type: newType, description: newDesc || null, maxPlayers: parseInt(newMax) || 10, availableForScheduling: true }),
@@ -80,7 +81,7 @@ export default function AdminCourts() {
   const updateMutation = useMutation({
     mutationFn: async (court: Court) => {
       const headers = await authHeader();
-      const res = await fetch(`/api/courts/${court.id}`, {
+      const res = await fetch(`${API_BASE}/courts/${court.id}`, {
         method: "PATCH",
         headers,
         body: JSON.stringify({ name: court.name, type: court.type, description: court.description, maxPlayers: court.maxPlayers, availableForScheduling: court.availableForScheduling }),
@@ -94,7 +95,7 @@ export default function AdminCourts() {
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
       const headers = await authHeader();
-      const res = await fetch(`/api/courts/${id}`, { method: "DELETE", headers });
+      const res = await fetch(`${API_BASE}/courts/${id}`, { method: "DELETE", headers });
       if (!res.ok) throw new Error("Failed to delete court");
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["courts"] }),

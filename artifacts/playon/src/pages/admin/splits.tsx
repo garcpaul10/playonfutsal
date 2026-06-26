@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import React, { useState } from "react";
 import { Redirect } from "wouter";
 import { useGetMyProfile } from "@workspace/api-client-react";
@@ -61,7 +62,7 @@ export default function AdminSplits() {
   const { data: rules, isLoading } = useQuery<SplitRule[]>({
     queryKey: ["split-rules"],
     queryFn: async () => {
-      const res = await fetch("/api/admin/facility-split-rules");
+      const res = await fetch(`${API_BASE}/admin/facility-split-rules`);
       if (!res.ok) throw new Error("Failed to load");
       return res.json();
     },
@@ -70,7 +71,7 @@ export default function AdminSplits() {
   const { data: venues } = useQuery<Venue[]>({
     queryKey: ["venues"],
     queryFn: async () => {
-      const res = await fetch("/api/venues");
+      const res = await fetch(`${API_BASE}/venues`);
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
@@ -98,7 +99,7 @@ export default function AdminSplits() {
   const deactivateMutation = useMutation({
     mutationFn: async (id: number) => {
       const headers = await authHeader();
-      await fetch(`/api/admin/facility-split-rules/${id}`, { method: "DELETE", headers });
+      await fetch(`${API_BASE}/admin/facility-split-rules/${id}`, { method: "DELETE", headers });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["split-rules"] });

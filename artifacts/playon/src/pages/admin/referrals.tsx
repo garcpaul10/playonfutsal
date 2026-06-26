@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import React, { useState } from "react";
 import { Redirect } from "wouter";
 import { useGetMyProfile } from "@workspace/api-client-react";
@@ -31,7 +32,7 @@ export default function AdminReferrals() {
     queryKey: ["admin-referrals"],
     queryFn: async () => {
       const token = await getToken();
-      const res = await fetch("/api/admin/referrals", { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch(`${API_BASE}/admin/referrals`, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
@@ -42,7 +43,7 @@ export default function AdminReferrals() {
     queryKey: ["admin-referrals-config"],
     queryFn: async () => {
       const token = await getToken();
-      const res = await fetch("/api/admin/referrals/config", { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch(`${API_BASE}/admin/referrals/config`, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
@@ -52,7 +53,7 @@ export default function AdminReferrals() {
   const configMutation = useMutation({
     mutationFn: async (body: { rewardCreditCents?: number; isEnabled?: boolean }) => {
       const token = await getToken();
-      const res = await fetch("/api/admin/referrals/config", {
+      const res = await fetch(`${API_BASE}/admin/referrals/config`, {
         method: "PATCH",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify(body),

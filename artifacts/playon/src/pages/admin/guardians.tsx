@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import React, { useState } from "react";
 import { Redirect } from "wouter";
 import { useGetMyProfile } from "@workspace/api-client-react";
@@ -89,7 +90,7 @@ export default function AdminGuardians() {
     enabled: !profileLoading && (profile?.role === "admin" || profile?.adminLevel === "super" || profile?.adminLevel === "admin"),
     queryFn: async () => {
       const token = await getToken();
-      const res = await fetch("/api/guardians", {
+      const res = await fetch(`${API_BASE}/guardians`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error("Failed to load guardians");
@@ -100,7 +101,7 @@ export default function AdminGuardians() {
   const updateStatus = useMutation({
     mutationFn: async ({ id, status }: { id: number; status: "approved" | "rejected" }) => {
       const token = await getToken();
-      const res = await fetch(`/api/guardians/${id}/status`, {
+      const res = await fetch(`${API_BASE}/guardians/${id}/status`, {
         method: "PATCH",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ status }),

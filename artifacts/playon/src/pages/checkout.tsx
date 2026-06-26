@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import React, { useState, useEffect, useRef } from "react";
 import { Redirect, useLocation } from "wouter";
 import { useGetMyProfile } from "@workspace/api-client-react";
@@ -327,7 +328,7 @@ export default function Checkout() {
     async function fetchReg() {
       try {
         const token = await getToken();
-        const res = await fetch(`/api/registrations/${registrationId}`, {
+        const res = await fetch(`${API_BASE}/registrations/${registrationId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.ok) {
@@ -349,7 +350,7 @@ export default function Checkout() {
       setCreditsLoading(true);
       try {
         const token = await getToken();
-        const res = await fetch("/api/account-credits", {
+        const res = await fetch(`${API_BASE}/account-credits`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.ok) {
@@ -375,7 +376,7 @@ export default function Checkout() {
     async function fetchFee() {
       try {
         const token = await getToken();
-        const res = await fetch(`/api/checkout/fee-preview`, {
+        const res = await fetch(`${API_BASE}/checkout/fee-preview`, {
           method: "POST",
           headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
           body: JSON.stringify({ grossAmount: priceAfterCredits, programType, programId }),
@@ -411,7 +412,7 @@ export default function Checkout() {
       }
 
       const token = await getToken();
-      const res = await fetch("/api/checkout/session", {
+      const res = await fetch(`${API_BASE}/checkout/session`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -477,7 +478,7 @@ export default function Checkout() {
     const code = discountCode.trim();
     try {
       const token = await getToken();
-      const res = await fetch("/api/checkout/validate-discount", {
+      const res = await fetch(`${API_BASE}/checkout/validate-discount`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ code, programType, programId, basePrice }),
@@ -500,7 +501,7 @@ export default function Checkout() {
   async function cancelCheckoutSession(sessionId: string) {
     try {
       const token = await getToken();
-      await fetch("/api/checkout/cancel-intent", {
+      await fetch(`${API_BASE}/checkout/cancel-intent`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ checkoutSessionId: sessionId }),

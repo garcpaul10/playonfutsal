@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import React, { useState } from "react";
 import { Redirect } from "wouter";
 import { useGetMyProfile } from "@workspace/api-client-react";
@@ -92,7 +93,7 @@ function CalendarSourcesTab({ token }: { token: string | null }) {
   const { data: sources, isLoading } = useQuery<CalendarSource[]>({
     queryKey: ["ai-calendar-sources"],
     queryFn: async () => {
-      const res = await fetch("/api/admin/ai/calendar-sources", { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch(`${API_BASE}/admin/ai/calendar-sources`, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
@@ -111,7 +112,7 @@ function CalendarSourcesTab({ token }: { token: string | null }) {
 
   async function addDate(sourceId: number) {
     if (!newDate.date) { toast({ title: "Date is required", variant: "destructive" }); return; }
-    const res = await fetch("/api/admin/ai/calendar-dates", {
+    const res = await fetch(`${API_BASE}/admin/ai/calendar-dates`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify({ sourceId, ...newDate }),
@@ -125,7 +126,7 @@ function CalendarSourcesTab({ token }: { token: string | null }) {
   }
 
   async function confirmDate(dateId: number, sourceId: number) {
-    const res = await fetch(`/api/admin/ai/calendar-dates/${dateId}/confirm`, {
+    const res = await fetch(`${API_BASE}/admin/ai/calendar-dates/${dateId}/confirm`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -137,7 +138,7 @@ function CalendarSourcesTab({ token }: { token: string | null }) {
   async function fetchSource(sourceId: number) {
     setFetchingSourceId(sourceId);
     try {
-      const res = await fetch(`/api/admin/ai/calendar-sources/${sourceId}/fetch`, {
+      const res = await fetch(`${API_BASE}/admin/ai/calendar-sources/${sourceId}/fetch`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({}),
@@ -158,7 +159,7 @@ function CalendarSourcesTab({ token }: { token: string | null }) {
   async function bulkConfirmSource(sourceId: number) {
     setBulkConfirming(true);
     try {
-      const res = await fetch("/api/admin/ai/calendar-dates/bulk-confirm", {
+      const res = await fetch(`${API_BASE}/admin/ai/calendar-dates/bulk-confirm`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ sourceId }),
@@ -173,7 +174,7 @@ function CalendarSourcesTab({ token }: { token: string | null }) {
   }
 
   async function deleteDate(dateId: number, sourceId: number) {
-    await fetch(`/api/admin/ai/calendar-dates/${dateId}`, {
+    await fetch(`${API_BASE}/admin/ai/calendar-dates/${dateId}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -356,7 +357,7 @@ function SuggestionsTab({ token }: { token: string | null }) {
   async function generateSuggestions() {
     setGenerating(true);
     try {
-      const res = await fetch("/api/admin/ai/suggest-events", {
+      const res = await fetch(`${API_BASE}/admin/ai/suggest-events`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ hint: hint || undefined, offeringType: offeringType || undefined }),
@@ -377,7 +378,7 @@ function SuggestionsTab({ token }: { token: string | null }) {
   }
 
   async function updateSuggestion(id: number, patch: Record<string, any>) {
-    const res = await fetch(`/api/admin/ai/suggestions/${id}`, {
+    const res = await fetch(`${API_BASE}/admin/ai/suggestions/${id}`, {
       method: "PATCH",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify(patch),
@@ -393,7 +394,7 @@ function SuggestionsTab({ token }: { token: string | null }) {
     if (!ld?.offeringType || !ld?.offeringId) {
       toast({ title: "Enter offering type and ID", variant: "destructive" }); return;
     }
-    const res = await fetch(`/api/admin/ai/suggestions/${id}/lock`, {
+    const res = await fetch(`${API_BASE}/admin/ai/suggestions/${id}/lock`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify({ offeringType: ld.offeringType, offeringId: Number(ld.offeringId) }),
@@ -636,7 +637,7 @@ function ProposalsTab({ token }: { token: string | null }) {
     queryFn: async () => {
       const params = new URLSearchParams();
       if (statusFilter) params.set("status", statusFilter);
-      const res = await fetch(`/api/admin/ai/proposals?${params}`, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch(`${API_BASE}/admin/ai/proposals?${params}`, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
@@ -646,7 +647,7 @@ function ProposalsTab({ token }: { token: string | null }) {
     if (!entityId) { toast({ title: "Entity ID is required", variant: "destructive" }); return; }
     setGenerating(true);
     try {
-      const res = await fetch("/api/admin/ai/proposals/generate", {
+      const res = await fetch(`${API_BASE}/admin/ai/proposals/generate`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ entityType, entityId: Number(entityId) }),
@@ -668,7 +669,7 @@ function ProposalsTab({ token }: { token: string | null }) {
   async function loadFull(id: number) {
     setLoadingFull(true);
     try {
-      const res = await fetch(`/api/admin/ai/proposals/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch(`${API_BASE}/admin/ai/proposals/${id}`, { headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
       setFullProposal(data);
       setExpandedId(id);
@@ -681,7 +682,7 @@ function ProposalsTab({ token }: { token: string | null }) {
     if (!reoptimizeText) { toast({ title: "Enter optimization instructions", variant: "destructive" }); return; }
     setGenerating(true);
     try {
-      const res = await fetch(`/api/admin/ai/proposals/${id}/reoptimize`, {
+      const res = await fetch(`${API_BASE}/admin/ai/proposals/${id}/reoptimize`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ reoptimizeRequest: reoptimizeText }),
@@ -701,7 +702,7 @@ function ProposalsTab({ token }: { token: string | null }) {
 
   async function saveFixtureEdit(proposalId: number, fixtureId: string) {
     const payload = { ...fixtureEdit, scheduledAt: fixtureEdit.scheduledAt ? toEasternISOString(fixtureEdit.scheduledAt) : fixtureEdit.scheduledAt };
-    const res = await fetch(`/api/admin/ai/proposals/${proposalId}/fixture`, {
+    const res = await fetch(`${API_BASE}/admin/ai/proposals/${proposalId}/fixture`, {
       method: "PATCH",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify({ fixtureId, ...payload }),
@@ -717,7 +718,7 @@ function ProposalsTab({ token }: { token: string | null }) {
   }
 
   async function approveProposal(id: number) {
-    const res = await fetch(`/api/admin/ai/proposals/${id}/approve`, {
+    const res = await fetch(`${API_BASE}/admin/ai/proposals/${id}/approve`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -731,7 +732,7 @@ function ProposalsTab({ token }: { token: string | null }) {
   }
 
   async function rejectProposal(id: number) {
-    await fetch(`/api/admin/ai/proposals/${id}/reject`, {
+    await fetch(`${API_BASE}/admin/ai/proposals/${id}/reject`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
     });

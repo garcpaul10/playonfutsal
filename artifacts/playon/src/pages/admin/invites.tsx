@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import React, { useState } from "react";
 import { Redirect } from "wouter";
 import { useGetMyProfile } from "@workspace/api-client-react";
@@ -66,7 +67,7 @@ export default function AdminInvites() {
     enabled: !profileLoading && (profile?.role === "admin" || profile?.role === "staff"),
     queryFn: async () => {
       const token = await getToken();
-      const res = await fetch("/api/admin/invites", {
+      const res = await fetch(`${API_BASE}/admin/invites`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error("Failed to load invites");
@@ -77,7 +78,7 @@ export default function AdminInvites() {
   const createInvite = useMutation({
     mutationFn: async () => {
       const token = await getToken();
-      const res = await fetch("/api/admin/invites", {
+      const res = await fetch(`${API_BASE}/admin/invites`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ email: inviteEmail, role: inviteRole }),
@@ -108,7 +109,7 @@ export default function AdminInvites() {
   const revokeInvite = useMutation({
     mutationFn: async (id: number) => {
       const token = await getToken();
-      const res = await fetch(`/api/admin/invites/${id}`, {
+      const res = await fetch(`${API_BASE}/admin/invites/${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -130,7 +131,7 @@ export default function AdminInvites() {
   const resendInvite = useMutation({
     mutationFn: async (id: number) => {
       const token = await getToken();
-      const res = await fetch(`/api/admin/invites/${id}/resend`, {
+      const res = await fetch(`${API_BASE}/admin/invites/${id}/resend`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });

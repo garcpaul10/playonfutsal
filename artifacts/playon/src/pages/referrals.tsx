@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import React from "react";
 import { useAuth, Show } from "@clerk/react";
 import { Link } from "wouter";
@@ -46,7 +47,7 @@ function ReferralHub() {
     queryKey: ["referrals-my"],
     queryFn: async () => {
       const token = await getToken();
-      const res = await fetch("/api/referrals/my", {
+      const res = await fetch(`${API_BASE}/referrals/my`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error("Failed to load referrals");
@@ -57,7 +58,7 @@ function ReferralHub() {
   const generateMutation = useMutation({
     mutationFn: async () => {
       const token = await getToken();
-      const res = await fetch("/api/referrals/generate", {
+      const res = await fetch(`${API_BASE}/referrals/generate`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });

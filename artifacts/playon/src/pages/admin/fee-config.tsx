@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import React, { useState } from "react";
 import { Redirect } from "wouter";
 import { useGetMyProfile } from "@workspace/api-client-react";
@@ -50,7 +51,7 @@ export default function AdminFeeConfig() {
     queryKey: ["service-fee-config"],
     queryFn: async () => {
       const token = await getToken();
-      const res = await fetch("/api/admin/service-fee-config", {
+      const res = await fetch(`${API_BASE}/admin/service-fee-config`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error("Failed");
@@ -61,7 +62,7 @@ export default function AdminFeeConfig() {
   const updateMutation = useMutation({
     mutationFn: async (payload: Record<string, unknown>) => {
       const headers = await authHeader();
-      const res = await fetch("/api/admin/service-fee-config", {
+      const res = await fetch(`${API_BASE}/admin/service-fee-config`, {
         method: "PATCH",
         headers,
         body: JSON.stringify(payload),

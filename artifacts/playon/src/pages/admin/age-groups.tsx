@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import React, { useState } from "react";
 import { Redirect } from "wouter";
 import { useGetMyProfile } from "@workspace/api-client-react";
@@ -62,7 +63,7 @@ export default function AdminAgeGroups() {
   const { data: ageGroups, isLoading: agLoading } = useQuery<AgeGroup[]>({
     queryKey: ["age-groups"],
     queryFn: async () => {
-      const res = await fetch("/api/age-groups");
+      const res = await fetch(`${API_BASE}/age-groups`);
       if (!res.ok) throw new Error("Failed to load age groups");
       return res.json();
     },
@@ -72,7 +73,7 @@ export default function AdminAgeGroups() {
     queryKey: ["age-group-mappings"],
     queryFn: async () => {
       const token = await getToken();
-      const res = await fetch("/api/age-group-mappings", { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch(`${API_BASE}/age-group-mappings`, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) return [];
       return res.json();
     },
@@ -81,7 +82,7 @@ export default function AdminAgeGroups() {
   const { data: courts } = useQuery<Court[]>({
     queryKey: ["courts"],
     queryFn: async () => {
-      const res = await fetch("/api/courts");
+      const res = await fetch(`${API_BASE}/courts`);
       if (!res.ok) throw new Error("Failed to load courts");
       return res.json();
     },
@@ -91,7 +92,7 @@ export default function AdminAgeGroups() {
     mutationFn: async () => {
       if (!newForm.label.trim()) throw new Error("Label is required");
       const headers = await authHeader();
-      const res = await fetch("/api/age-groups", {
+      const res = await fetch(`${API_BASE}/age-groups`, {
         method: "POST",
         headers,
         body: JSON.stringify({
@@ -117,7 +118,7 @@ export default function AdminAgeGroups() {
     mutationFn: async () => {
       if (!editTarget) return;
       const headers = await authHeader();
-      const res = await fetch(`/api/age-groups/${editTarget.id}`, {
+      const res = await fetch(`${API_BASE}/age-groups/${editTarget.id}`, {
         method: "PATCH",
         headers,
         body: JSON.stringify({
@@ -141,7 +142,7 @@ export default function AdminAgeGroups() {
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
       const headers = await authHeader();
-      const res = await fetch(`/api/age-groups/${id}`, { method: "DELETE", headers });
+      const res = await fetch(`${API_BASE}/age-groups/${id}`, { method: "DELETE", headers });
       if (!res.ok) throw new Error("Failed to delete age group");
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["age-groups"] }),

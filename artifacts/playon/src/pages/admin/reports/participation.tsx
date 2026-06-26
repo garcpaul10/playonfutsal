@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import React, { useState } from "react";
 import { Redirect } from "wouter";
 import { useGetMyProfile } from "@workspace/api-client-react";
@@ -42,7 +43,7 @@ export default function ParticipationReport() {
       if (from) params.set("from", from);
       if (to) params.set("to", to);
       if (offeringType) params.set("type", offeringType);
-      const res = await fetch(`/api/admin/reports/participation?${params}`, {
+      const res = await fetch(`${API_BASE}/admin/reports/participation?${params}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error("Failed");

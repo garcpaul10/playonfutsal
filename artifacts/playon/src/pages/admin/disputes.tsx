@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import React, { useState } from "react";
 import { Redirect } from "wouter";
 import { useGetMyProfile } from "@workspace/api-client-react";
@@ -55,7 +56,7 @@ export default function AdminDisputes() {
     queryKey: ["admin-disputes"],
     queryFn: async () => {
       const token = await getToken();
-      const res = await fetch("/api/admin/disputes?limit=200", {
+      const res = await fetch(`${API_BASE}/admin/disputes?limit=200`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error("Failed to load disputes");

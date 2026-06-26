@@ -7,8 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { WaiverForm, type WaiverData } from "@/components/waiver-form";
 import { Loader2, CheckCircle2, AlertTriangle } from "lucide-react";
-
-const API = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
+import { API_BASE as API } from "@/lib/api-base";
 
 export function useParticipantProfile() {
   const { getToken, isSignedIn } = useAuth();

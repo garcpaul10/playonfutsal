@@ -111,7 +111,7 @@ export default function AdminVenues() {
   const { data: venues, isLoading } = useQuery<Venue[]>({
     queryKey: ["venues"],
     queryFn: async () => {
-      const res = await fetch("/api/venues");
+      const res = await fetch(`${API_BASE}/venues`);
       if (!res.ok) throw new Error("Failed to load venues");
       return res.json();
     },
@@ -144,7 +144,7 @@ export default function AdminVenues() {
     mutationFn: async () => {
       if (!newForm.name.trim()) throw new Error("Name is required");
       const headers = await authHeader();
-      const res = await fetch("/api/venues", {
+      const res = await fetch(`${API_BASE}/venues`, {
         method: "POST",
         headers,
         body: JSON.stringify({ ...newForm, name: newForm.name.trim() }),
@@ -163,7 +163,7 @@ export default function AdminVenues() {
   const updateMutation = useMutation({
     mutationFn: async (venue: Venue) => {
       const headers = await authHeader();
-      const res = await fetch(`/api/venues/${venue.id}`, { method: "PATCH", headers, body: JSON.stringify(venue) });
+      const res = await fetch(`${API_BASE}/venues/${venue.id}`, { method: "PATCH", headers, body: JSON.stringify(venue) });
       if (!res.ok) throw new Error("Failed to update venue");
       return res.json();
     },
@@ -173,7 +173,7 @@ export default function AdminVenues() {
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
       const headers = await authHeader();
-      const res = await fetch(`/api/venues/${id}`, { method: "DELETE", headers });
+      const res = await fetch(`${API_BASE}/venues/${id}`, { method: "DELETE", headers });
       if (!res.ok) throw new Error("Failed to delete venue");
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["venues"] }),

@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import React, { useState } from "react";
 import { Redirect } from "wouter";
 import { useGetMyProfile } from "@workspace/api-client-react";
@@ -62,7 +63,7 @@ export default function AdminDiscountCodes() {
     queryKey: ["discount-codes"],
     queryFn: async () => {
       const token = await getToken();
-      const res = await fetch("/api/admin/discount-codes", { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch(`${API_BASE}/admin/discount-codes`, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
@@ -71,7 +72,7 @@ export default function AdminDiscountCodes() {
   const createMutation = useMutation({
     mutationFn: async (payload: Record<string, unknown>) => {
       const headers = await authH();
-      const res = await fetch("/api/admin/discount-codes", { method: "POST", headers, body: JSON.stringify(payload) });
+      const res = await fetch(`${API_BASE}/admin/discount-codes`, { method: "POST", headers, body: JSON.stringify(payload) });
       if (!res.ok) { const e = await res.json(); throw new Error(e.error ?? "Failed"); }
       return res.json();
     },
@@ -87,7 +88,7 @@ export default function AdminDiscountCodes() {
   const updateMutation = useMutation({
     mutationFn: async ({ id, payload }: { id: number; payload: Record<string, unknown> }) => {
       const headers = await authH();
-      const res = await fetch(`/api/admin/discount-codes/${id}`, { method: "PATCH", headers, body: JSON.stringify(payload) });
+      const res = await fetch(`${API_BASE}/admin/discount-codes/${id}`, { method: "PATCH", headers, body: JSON.stringify(payload) });
       if (!res.ok) { const e = await res.json(); throw new Error(e.error ?? "Failed"); }
       return res.json();
     },
@@ -103,7 +104,7 @@ export default function AdminDiscountCodes() {
   const deactivateMutation = useMutation({
     mutationFn: async (id: number) => {
       const headers = await authH();
-      await fetch(`/api/admin/discount-codes/${id}`, { method: "DELETE", headers: { Authorization: (await getToken()) ?? "" } });
+      await fetch(`${API_BASE}/admin/discount-codes/${id}`, { method: "DELETE", headers: { Authorization: (await getToken()) ?? "" } });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["discount-codes"] });

@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api-base";
 import React, { useState } from "react";
 import { Redirect } from "wouter";
 import { useGetMyProfile } from "@workspace/api-client-react";
@@ -84,7 +85,7 @@ export default function AdminPayments() {
     queryKey: ["disputes-summary"],
     queryFn: async () => {
       const token = await getToken();
-      const res = await fetch("/api/admin/disputes/summary", { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch(`${API_BASE}/admin/disputes/summary`, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) return { openCount: 0 };
       return res.json();
     },
@@ -115,7 +116,7 @@ export default function AdminPayments() {
       const params = new URLSearchParams();
       if (from) params.set("from", from);
       if (to) params.set("to", to);
-      const res = await fetch(`/api/admin/payments/summary?${params}`, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch(`${API_BASE}/admin/payments/summary?${params}`, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
@@ -138,7 +139,7 @@ export default function AdminPayments() {
       if (includeCamp) {
         const params = new URLSearchParams();
         if (filterType && campTypes.includes(filterType)) params.set("programType", filterType);
-        const res = await fetch(`/api/admin/payments/outstanding?${params}`, { headers });
+        const res = await fetch(`${API_BASE}/admin/payments/outstanding?${params}`, { headers });
         if (res.ok) {
           const rows: OutstandingReg[] = await res.json();
           results.push(...rows);
@@ -150,7 +151,7 @@ export default function AdminPayments() {
         const params = new URLSearchParams();
         if (filterType === "league") params.set("type", "league");
         else if (filterType === "tournament") params.set("type", "tournament");
-        const res = await fetch(`/api/admin/deposits/outstanding?${params}`, { headers });
+        const res = await fetch(`${API_BASE}/admin/deposits/outstanding?${params}`, { headers });
         if (res.ok) {
           const rows: OutstandingReg[] = await res.json();
           results.push(...rows);
@@ -166,7 +167,7 @@ export default function AdminPayments() {
     queryKey: ["payments-external"],
     queryFn: async () => {
       const token = await getToken();
-      const res = await fetch("/api/admin/payments/external", { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch(`${API_BASE}/admin/payments/external`, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
@@ -181,7 +182,7 @@ export default function AdminPayments() {
       params.set("status", "paid");
       if (from) params.set("from", from);
       if (to) params.set("to", to);
-      const res = await fetch(`/api/payments?${params}`, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch(`${API_BASE}/payments?${params}`, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
@@ -192,7 +193,7 @@ export default function AdminPayments() {
     queryKey: ["refund-policies"],
     queryFn: async () => {
       const token = await getToken();
-      const res = await fetch("/api/admin/refund-policies", { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch(`${API_BASE}/admin/refund-policies`, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
@@ -220,7 +221,7 @@ export default function AdminPayments() {
       const params = new URLSearchParams();
       if (from) params.set("from", from);
       if (to) params.set("to", to);
-      const res = await fetch(`/api/admin/payments/facility-split?${params}`, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch(`${API_BASE}/admin/payments/facility-split?${params}`, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
@@ -238,7 +239,7 @@ export default function AdminPayments() {
     queryKey: ["admin-installments"],
     queryFn: async () => {
       const token = await getToken();
-      const res = await fetch("/api/admin/installments", { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch(`${API_BASE}/admin/installments`, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
@@ -248,7 +249,7 @@ export default function AdminPayments() {
   const payNextMutation = useMutation({
     mutationFn: async (scheduleId: number) => {
       const headers = await authH();
-      const res = await fetch(`/api/admin/installments/${scheduleId}/pay-next`, { method: "POST", headers });
+      const res = await fetch(`${API_BASE}/admin/installments/${scheduleId}/pay-next`, { method: "POST", headers });
       if (!res.ok) { const e = await res.json(); throw new Error(e.error ?? "Failed"); }
       return res.json();
     },
@@ -261,7 +262,7 @@ export default function AdminPayments() {
   const sendRemindersMutation = useMutation({
     mutationFn: async () => {
       const headers = await authH();
-      const res = await fetch("/api/admin/payments/send-balance-reminders", { method: "POST", headers });
+      const res = await fetch(`${API_BASE}/admin/payments/send-balance-reminders`, { method: "POST", headers });
       if (!res.ok) { const e = await res.json(); throw new Error(e.error ?? "Failed"); }
       return res.json();
     },
@@ -272,7 +273,7 @@ export default function AdminPayments() {
   const markExternalMutation = useMutation({
     mutationFn: async (payload: Record<string, unknown>) => {
       const headers = await authH();
-      const res = await fetch("/api/admin/refunds/external", { method: "POST", headers, body: JSON.stringify(payload) });
+      const res = await fetch(`${API_BASE}/admin/refunds/external`, { method: "POST", headers, body: JSON.stringify(payload) });
       if (!res.ok) { const e = await res.json(); throw new Error(e.error ?? "Failed"); }
       return res.json();
     },
@@ -289,7 +290,7 @@ export default function AdminPayments() {
   const applyRefundMutation = useMutation({
     mutationFn: async (payload: Record<string, unknown>) => {
       const headers = await authH();
-      const res = await fetch("/api/admin/refunds/apply", { method: "POST", headers, body: JSON.stringify(payload) });
+      const res = await fetch(`${API_BASE}/admin/refunds/apply`, { method: "POST", headers, body: JSON.stringify(payload) });
       if (!res.ok) { const e = await res.json(); throw new Error(e.error ?? "Failed"); }
       return res.json();
     },
