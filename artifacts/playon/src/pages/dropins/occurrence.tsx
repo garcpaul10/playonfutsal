@@ -174,7 +174,12 @@ function PoolCard({ pool, templateId, date, sessionStartsAt, onRegistered }: {
       if (!mySpot?.id) throw new Error("No active spot to cancel");
       const headers = await getHeaders();
       const r = await fetch(`${API}/dropins/spots/${mySpot.id}`, { method: "DELETE", headers });
-      if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error ?? "Cancellation failed"); }
+      if (!r.ok) {
+        const e = await r.json().catch(() => ({}));
+        // Treat "already cancelled" as success — spot is gone, which is what the user wants
+        if (e.error === "Spot already cancelled") return;
+        throw new Error(e.error ?? "Cancellation failed");
+      }
     },
     onSuccess: () => {
       setCancelConfirm(false);
