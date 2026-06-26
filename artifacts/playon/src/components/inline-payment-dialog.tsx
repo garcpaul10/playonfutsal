@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { loadStripe, type Stripe } from "@stripe/stripe-js";
-import { CheckoutElementsProvider, PaymentElement, useCheckout } from "@stripe/react-stripe-js/checkout";
+import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
@@ -18,32 +18,25 @@ interface InnerFormProps {
 }
 
 function InnerPaymentForm({ amount, basePrice, serviceFeeAmount, label, onSuccess, onCancel }: InnerFormProps) {
-  const checkoutResult = useCheckout();
+  const stripe = useStripe();
+  const elements = useElements();
   const [processing, setProcessing] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
 
-  if (checkoutResult.type === "error") {
-    return (
-      <div className="rounded-md bg-red-50 border border-red-200 p-4 space-y-2">
-        <p className="text-sm font-medium text-red-700">Payment form failed to load</p>
-        <p className="text-xs text-red-600">{(checkoutResult as any).error?.message ?? "Unknown Stripe error"}</p>
-      </div>
-    );
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (checkoutResult.type !== "success") return;
+    if (!stripe || !elements) return;
     setProcessing(true);
     setPaymentError(null);
     try {
-      const result = await checkoutResult.checkout.confirm({ redirect: "if_required" });
-      if (result.type === "error") {
-        setPaymentError(result.error.message ?? "Payment failed. Please try again.");
-      } else if (result.type === "success") {
-        onSuccess();
+      const { error } = await stripe.confirmPayment({
+        elements,
+        redirect: "if_required",
+      });
+      if (error) {
+        setPaymentError(error.message ?? "Payment failed. Please try again.");
       } else {
-        setPaymentError("Unexpected payment status. Please contact support.");
+        onSuccess();
       }
     } catch (err: any) {
       setPaymentError(err.message ?? "An unexpected error occurred.");
@@ -52,7 +45,7 @@ function InnerPaymentForm({ amount, basePrice, serviceFeeAmount, label, onSucces
     }
   }
 
-  const ready = checkoutResult.type === "success";
+  const ready = !!stripe && !!elements;
   const showBreakdown = basePrice !== undefined && serviceFeeAmount !== undefined;
 
   return (
@@ -146,15 +139,13 @@ export function InlinePaymentDialog({
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
         {clientSecret && (
-          <CheckoutElementsProvider
+          <Elements
             stripe={stripePromise}
             options={{
               clientSecret,
-              elementsOptions: {
-                appearance: {
-                  theme: "stripe",
-                  variables: { colorPrimary: "#16a34a" },
-                },
+              appearance: {
+                theme: "stripe",
+                variables: { colorPrimary: "#740D2A" },
               },
             }}
           >
@@ -166,7 +157,7 @@ export function InlinePaymentDialog({
               onSuccess={onSuccess}
               onCancel={onCancel}
             />
-          </CheckoutElementsProvider>
+          </Elements>
         )}
       </DialogContent>
     </Dialog>

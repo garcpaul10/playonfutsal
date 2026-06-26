@@ -1381,35 +1381,19 @@ router.post("/dropin-occurrences/:templateId/:date/pools/:poolId/rsvp", requireA
       sharedMeta.playerUserId = String(playerUserId);
     }
 
-    const origin = (req.headers.origin ?? req.headers.referer ?? "https://playonfutsal.vercel.app").replace(/\/$/, "");
-    const lineItems: any[] = [{
-      price_data: { currency: "usd", product_data: { name: dropin.name }, unit_amount: Math.round(priceAfterCredits * 100) },
-      quantity: 1,
-    }];
-    if (serviceFeeAmount > 0) {
-      lineItems.push({
-        price_data: { currency: "usd", product_data: { name: "Processing fee" }, unit_amount: Math.round(serviceFeeAmount * 100) },
-        quantity: 1,
-      });
-    }
-
-    let session: any;
+    let pi: any;
     let clientSecret: string;
     try {
-      session = await (stripe.checkout.sessions.create as any)({
-        mode: "payment",
-        ui_mode: "custom",
-        return_url: `${origin}/checkout/complete?session_id={CHECKOUT_SESSION_ID}`,
-        line_items: lineItems,
+      pi = await stripe.paymentIntents.create({
+        amount: Math.round(totalAmount * 100),
+        currency: "usd",
         metadata: sharedMeta,
-        customer_email: user.email || undefined,
-        payment_intent_data: { receipt_email: user.email || undefined, metadata: sharedMeta },
+        receipt_email: user.email || undefined,
+        description: dropin.name ?? "Drop-in registration",
       });
-      clientSecret = session.client_secret as string;
-      if (!clientSecret) throw new Error("Stripe checkout session did not return a client secret");
+      clientSecret = pi.client_secret as string;
+      if (!clientSecret) throw new Error("PaymentIntent did not return a client secret");
 
-      // Insert pending payment row so webhook credit-restoration and
-      // payment-reconciliation logic can find this session by providerPaymentId.
       await db.insert(paymentsTable).values({
         userId: user.id,
         entityType: "drop_in",
@@ -1418,13 +1402,12 @@ router.post("/dropin-occurrences/:templateId/:date/pools/:poolId/rsvp", requireA
         currency: "usd",
         status: "pending",
         provider: "stripe",
-        providerPaymentId: session.id,
+        providerPaymentId: pi.id,
         paymentMethod: "card",
         serviceFeeAmount: String(serviceFeeAmount),
-        metadata: JSON.stringify({ checkoutSessionId: session.id, discountCodeId, creditApplied, reservedCreditIds }),
+        metadata: JSON.stringify({ paymentIntentId: pi.id, discountCodeId, creditApplied, reservedCreditIds }),
       } as any);
     } catch (stripeErr: any) {
-      // Restore any pre-reserved credits so they aren't stranded
       if (reservedCreditIds.length > 0) {
         await restoreReservedCredits(JSON.stringify(reservedCreditIds)).catch(() => {});
       }
@@ -1444,15 +1427,15 @@ router.post("/dropin-occurrences/:templateId/:date/pools/:poolId/rsvp", requireA
         waitlisted: false,
         waitlistPosition: null,
         confirmedAt: null,
-        notes: `cs:${session.id}`,
+        notes: `pi:${pi.id}`,
       } as any);
     } catch (err: any) {
-      // Race: spot already exists — restore credits and void the pending Stripe session
+      // Race: spot already exists — restore credits and cancel the pending PaymentIntent
       if (reservedCreditIds.length > 0) {
         await restoreReservedCredits(JSON.stringify(reservedCreditIds)).catch(() => {});
       }
-      try { await (stripe.checkout.sessions.expire as any)(session.id); } catch { /* best-effort */ }
-      await db.update(paymentsTable).set({ status: "failed" } as any).where(eq(paymentsTable.providerPaymentId, session.id));
+      try { await stripe.paymentIntents.cancel(pi.id); } catch { /* best-effort */ }
+      await db.update(paymentsTable).set({ status: "failed" } as any).where(eq(paymentsTable.providerPaymentId, pi.id));
       if (err?.code === "23505") {
         res.status(409).json({ error: "Already registered", message: "This player already has an active spot for this pool" });
         return;
