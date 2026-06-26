@@ -1381,7 +1381,7 @@ router.post("/dropin-occurrences/:templateId/:date/pools/:poolId/rsvp", requireA
       sharedMeta.playerUserId = String(playerUserId);
     }
 
-    const origin = (req.headers.origin ?? req.headers.referer ?? "https://playon.replit.app").replace(/\/$/, "");
+    const origin = (req.headers.origin ?? req.headers.referer ?? "https://playonfutsal.vercel.app").replace(/\/$/, "");
     const lineItems: any[] = [{
       price_data: { currency: "usd", product_data: { name: dropin.name }, unit_amount: Math.round(priceAfterCredits * 100) },
       quantity: 1,
@@ -1402,8 +1402,8 @@ router.post("/dropin-occurrences/:templateId/:date/pools/:poolId/rsvp", requireA
         return_url: `${origin}/checkout/complete?session_id={CHECKOUT_SESSION_ID}`,
         line_items: lineItems,
         metadata: sharedMeta,
-        customer_email: user.email ?? undefined,
-        payment_intent_data: { receipt_email: user.email ?? undefined, metadata: sharedMeta },
+        customer_email: user.email || undefined,
+        payment_intent_data: { receipt_email: user.email || undefined, metadata: sharedMeta },
       });
       clientSecret = session.client_secret as string;
       if (!clientSecret) throw new Error("Stripe checkout session did not return a client secret");
