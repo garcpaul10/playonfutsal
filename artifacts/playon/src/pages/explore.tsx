@@ -112,6 +112,7 @@ export default function ExplorePage() {
     if (!programs) return [{ value: "all", label: "All Ages" }];
     let hasYouth = false;
     let hasAdult = false;
+    console.log("[explore] raw programs ageGroups:", programs.map((p: any) => ({ name: p.name, ageGroup: p.ageGroup })));
     programs.forEach((p: any) => {
       const groups: string[] = Array.isArray(p.ageGroup) ? p.ageGroup : p.ageGroup ? p.ageGroup.split(",").map((g: string) => g.trim()) : [];
       groups.forEach((g) => {
