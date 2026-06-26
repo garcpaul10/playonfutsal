@@ -493,7 +493,7 @@ router.post("/checkout/session", requireAuth, async (req: Request, res): Promise
         category: offering.category,
       };
 
-      const origin = (req.headers.origin ?? req.headers.referer ?? "https://playon.replit.app").replace(/\/$/, "");
+      const origin = (req.headers.origin ?? req.headers.referer ?? "https://playonfutsal.vercel.app").replace(/\/$/, "");
       const session = await (stripe.checkout.sessions.create as any)({
         mode: "payment",
         ui_mode: "custom",

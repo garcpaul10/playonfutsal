@@ -1,4 +1,5 @@
 import { API_BASE } from "@/lib/api-base";
+import { useAuth } from "@clerk/react";
 import { useCallback } from "react";
 import { useLocation } from "wouter";
 
@@ -9,10 +10,14 @@ export interface ProfileGateResult {
 
 export function useProfileGate(): ProfileGateResult {
   const [, setLocation] = useLocation();
+  const { getToken } = useAuth();
 
   const checkAndRedirect = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/me`, { credentials: "include" });
+      const token = await getToken();
+      const headers: Record<string, string> = {};
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      const res = await fetch(`${API_BASE}/me`, { headers });
       if (!res.ok) {
         setLocation("/onboarding");
         return;
@@ -38,7 +43,7 @@ export function useProfileGate(): ProfileGateResult {
       return;
     }
     setLocation("/dashboard");
-  }, [setLocation]);
+  }, [setLocation, getToken]);
 
   return { checkAndRedirect };
 }
