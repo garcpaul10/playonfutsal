@@ -8,10 +8,20 @@ import { occurrenceDateToUtc } from "../services/dropinOccurrenceService.js";
 
 const router: IRouter = Router();
 
-const normalizeAgeGroup = (raw: unknown): string[] => {
+// Parse a value that may be a JS array OR a raw Postgres array literal like "{adult}" or "{u8,u9,u10}"
+function parseAgeGroupArray(raw: unknown): string[] {
   if (Array.isArray(raw)) return (raw as string[]).filter((v) => typeof v === "string" && v.length > 0);
-  if (typeof raw === "string" && raw.length > 0) return [raw];
-  return ["adult"];
+  if (typeof raw === "string" && raw.length > 0) {
+    // Postgres array literal: strip surrounding { } then split
+    const stripped = raw.replace(/^\{|\}$/g, "");
+    return stripped.split(",").map((s) => s.trim().replace(/^"|"$/g, "")).filter(Boolean);
+  }
+  return [];
+}
+
+const normalizeAgeGroup = (raw: unknown): string[] => {
+  const groups = parseAgeGroupArray(raw);
+  return groups.length > 0 ? groups : ["adult"];
 };
 
 /**
@@ -75,7 +85,7 @@ async function dropinPoolAggregates(dropinIds: number[]): Promise<Map<number, Dr
     existing.spotsTotal += pool.cap ?? 0;
     existing.spotsTaken += spotsByPool.get(pool.id) ?? 0;
 
-    const poolAgeGroups: string[] = Array.isArray(pool.ageGroup) ? (pool.ageGroup as string[]) : [];
+    const poolAgeGroups: string[] = parseAgeGroupArray(pool.ageGroup);
     for (const ag of poolAgeGroups) {
       if (!existing.ageGroups.includes(ag)) existing.ageGroups.push(ag);
     }
@@ -174,11 +184,7 @@ async function dropinTemplatePoolAggregates(templateIds: number[]): Promise<Map<
     const tid = pool.templateId;
     const existing = result.get(tid) ?? { spotsTotal: 0, spotsConfirmed: 0, ageGroups: [], gender: null, minPrice: Infinity };
     existing.spotsTotal += pool.cap ?? 0;
-    const poolAgeGroups: string[] = Array.isArray(pool.ageGroup)
-      ? (pool.ageGroup as string[])
-      : typeof pool.ageGroup === "string" && pool.ageGroup
-        ? pool.ageGroup.split(",").map((g: string) => g.trim())
-        : [];
+    const poolAgeGroups: string[] = parseAgeGroupArray(pool.ageGroup);
     for (const ag of poolAgeGroups) {
       if (!existing.ageGroups.includes(ag)) existing.ageGroups.push(ag);
     }
