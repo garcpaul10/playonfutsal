@@ -1,34 +1,36 @@
 /**
  * ID Photo Storage
  *
- * Server-side helper for storing government-issued ID photos in a private
- * GCS bucket and generating time-limited signed read URLs for admin viewing.
+ * Stores government-issued ID photos via Cloudinary (preferred, works on Railway)
+ * or falls back to GCS via Replit sidecar when running on Replit.
  *
- * Photos are stored under the prefix "id-photos/<uuid>" within the private
- * object directory. They are never publicly accessible.
- *
- * Credentials (in priority order):
- *  1. GCS_CREDENTIALS env var — JSON string of a GCS service account key (Railway / any host)
- *  2. Replit sidecar — used automatically when running on Replit
+ * Set CLOUDINARY_URL on Railway — format: cloudinary://api_key:api_secret@cloud_name
+ * Photos are uploaded to the "id-photos" folder with restricted access.
  */
 
-import { Storage } from "@google-cloud/storage";
 import { randomUUID } from "crypto";
+
+// ── Cloudinary path ────────────────────────────────────────────────────────────
+
+async function getCloudinary() {
+  const { v2: cloudinary } = await import("cloudinary");
+  const cloudinaryUrl = process.env.CLOUDINARY_URL;
+  if (!cloudinaryUrl) return null;
+  cloudinary.config({ secure: true }); // CLOUDINARY_URL is picked up automatically
+  return cloudinary;
+}
+
+// ── GCS / Replit path ─────────────────────────────────────────────────────────
 
 const REPLIT_SIDECAR_ENDPOINT = "http://127.0.0.1:1106";
 
-function buildStorage(): Storage {
+function buildGCSStorage() {
+  const { Storage } = require("@google-cloud/storage");
   const credentialsJson = process.env.GCS_CREDENTIALS;
   if (credentialsJson) {
-    try {
-      const credentials = JSON.parse(credentialsJson);
-      return new Storage({ credentials, projectId: credentials.project_id });
-    } catch (err) {
-      throw new Error("GCS_CREDENTIALS env var is set but is not valid JSON");
-    }
+    const credentials = JSON.parse(credentialsJson);
+    return new Storage({ credentials, projectId: credentials.project_id });
   }
-
-  // Fallback: Replit sidecar (only works when running on Replit)
   return new Storage({
     credentials: {
       audience: "replit",
@@ -37,68 +39,75 @@ function buildStorage(): Storage {
       type: "external_account",
       credential_source: {
         url: `${REPLIT_SIDECAR_ENDPOINT}/credential`,
-        format: {
-          type: "json",
-          subject_token_field_name: "access_token",
-        },
+        format: { type: "json", subject_token_field_name: "access_token" },
       },
       universe_domain: "googleapis.com",
-    } as any,
+    },
     projectId: "",
   });
 }
 
-function getBucketName(): string {
-  const bucketId = process.env.GCS_BUCKET_NAME ?? process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID;
-  if (!bucketId) throw new Error("GCS_BUCKET_NAME env var is not set");
-  return bucketId;
+function getGCSBucketName(): string {
+  const name = process.env.GCS_BUCKET_NAME ?? process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID;
+  if (!name) throw new Error("No storage configured: set CLOUDINARY_URL or GCS_BUCKET_NAME");
+  return name;
 }
 
-/**
- * Upload an ID photo buffer to private GCS storage.
- * Returns the GCS object name (path within the bucket), stored as id_photo_url.
- */
-export async function uploadIdPhoto(
-  buffer: Buffer,
-  mimeType: string,
-): Promise<string> {
-  const storage = buildStorage();
-  const bucketName = getBucketName();
-  const ext = mimeType === "image/jpeg" ? "jpg" : mimeType === "image/png" ? "png" : "jpg";
-  const objectName = `id-photos/${randomUUID()}.${ext}`;
+// ── Public API ─────────────────────────────────────────────────────────────────
 
+export async function uploadIdPhoto(buffer: Buffer, mimeType: string): Promise<string> {
+  const cloudinary = await getCloudinary();
+  if (cloudinary) {
+    const b64 = buffer.toString("base64");
+    const dataUri = `data:${mimeType};base64,${b64}`;
+    const result = await cloudinary.uploader.upload(dataUri, {
+      folder: "id-photos",
+      public_id: randomUUID(),
+      resource_type: "image",
+      type: "private",
+    });
+    return result.public_id;
+  }
+
+  // GCS fallback
+  const storage = buildGCSStorage();
+  const bucketName = getGCSBucketName();
+  const ext = mimeType === "image/png" ? "png" : "jpg";
+  const objectName = `id-photos/${randomUUID()}.${ext}`;
   const bucket = storage.bucket(bucketName);
   const file = bucket.file(objectName);
-
   await new Promise<void>((resolve, reject) => {
-    const stream = file.createWriteStream({
-      metadata: { contentType: mimeType },
-      resumable: false,
-    });
+    const stream = file.createWriteStream({ metadata: { contentType: mimeType }, resumable: false });
     stream.on("error", reject);
     stream.on("finish", resolve);
     stream.end(buffer);
   });
-
   return objectName;
 }
 
-/**
- * Download an ID photo from GCS and return its buffer + content type.
- * Used to proxy the image through the API server.
- */
-export async function downloadIdPhoto(
-  objectName: string,
-): Promise<{ buffer: Buffer; contentType: string }> {
-  const storage = buildStorage();
-  const bucketName = getBucketName();
+export async function downloadIdPhoto(objectName: string): Promise<{ buffer: Buffer; contentType: string }> {
+  const cloudinary = await getCloudinary();
+  if (cloudinary) {
+    // Generate a signed URL and fetch the image
+    const url = cloudinary.utils.private_download_url(objectName, "jpg", {
+      resource_type: "image",
+      type: "private",
+      expires_at: Math.floor(Date.now() / 1000) + 3600,
+    });
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Cloudinary fetch failed: ${res.status}`);
+    const ab = await res.arrayBuffer();
+    const contentType = res.headers.get("content-type") ?? "image/jpeg";
+    return { buffer: Buffer.from(ab), contentType };
+  }
+
+  // GCS fallback
+  const storage = buildGCSStorage();
+  const bucketName = getGCSBucketName();
   const bucket = storage.bucket(bucketName);
   const file = bucket.file(objectName);
-
   const [metadata] = await file.getMetadata();
-  const contentType =
-    (metadata.contentType as string | undefined) ?? "image/jpeg";
-
+  const contentType = (metadata.contentType as string | undefined) ?? "image/jpeg";
   const chunks: Buffer[] = [];
   await new Promise<void>((resolve, reject) => {
     const stream = file.createReadStream();
@@ -106,22 +115,21 @@ export async function downloadIdPhoto(
     stream.on("error", reject);
     stream.on("end", resolve);
   });
-
   return { buffer: Buffer.concat(chunks), contentType };
 }
 
-/**
- * Delete an ID photo from GCS storage.
- * Silently succeeds if the object doesn't exist.
- */
 export async function deleteIdPhoto(objectName: string): Promise<void> {
   try {
-    const storage = buildStorage();
-    const bucketName = getBucketName();
+    const cloudinary = await getCloudinary();
+    if (cloudinary) {
+      await cloudinary.uploader.destroy(objectName, { resource_type: "image", type: "private" });
+      return;
+    }
+    const storage = buildGCSStorage();
+    const bucketName = getGCSBucketName();
     const bucket = storage.bucket(bucketName);
-    const file = bucket.file(objectName);
-    await file.delete({ ignoreNotFound: true });
+    await bucket.file(objectName).delete({ ignoreNotFound: true });
   } catch (err: any) {
-    console.error("[deleteIdPhoto] Failed to delete ID photo:", err?.message ?? err);
+    console.error("[deleteIdPhoto] failed:", err?.message ?? err);
   }
 }
