@@ -22,6 +22,15 @@ function InnerPaymentForm({ amount, basePrice, serviceFeeAmount, label, onSucces
   const [processing, setProcessing] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
 
+  if (checkoutResult.type === "error") {
+    return (
+      <div className="rounded-md bg-red-50 border border-red-200 p-4 space-y-2">
+        <p className="text-sm font-medium text-red-700">Payment form failed to load</p>
+        <p className="text-xs text-red-600">{(checkoutResult as any).error?.message ?? "Unknown Stripe error"}</p>
+      </div>
+    );
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (checkoutResult.type !== "success") return;
