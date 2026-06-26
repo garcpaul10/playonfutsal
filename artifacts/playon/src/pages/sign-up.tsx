@@ -29,6 +29,7 @@ function PageShell({ children }: { children: React.ReactNode }) {
 function SignUpCompletePage() {
   const [, setLocation] = useLocation();
   const { isLoaded } = useAuth();
+  const { checkAndRedirect } = useProfileGate();
   const doneRef = useRef(false);
 
   useEffect(() => {
@@ -72,11 +73,13 @@ function SignUpCompletePage() {
         }
       } catch {}
 
-      setLocation("/onboarding");
+      // Check whether this user already has a complete profile (e.g. migrating from
+      // the old Clerk instance). If so, skip onboarding and go straight to /dashboard.
+      await checkAndRedirect();
     };
 
     save();
-  }, [isLoaded, setLocation]);
+  }, [isLoaded, setLocation, checkAndRedirect]);
 
   return (
     <PageShell>
