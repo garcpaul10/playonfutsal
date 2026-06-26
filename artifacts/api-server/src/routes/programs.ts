@@ -174,7 +174,11 @@ async function dropinTemplatePoolAggregates(templateIds: number[]): Promise<Map<
     const tid = pool.templateId;
     const existing = result.get(tid) ?? { spotsTotal: 0, spotsConfirmed: 0, ageGroups: [], gender: null, minPrice: Infinity };
     existing.spotsTotal += pool.cap ?? 0;
-    const poolAgeGroups: string[] = Array.isArray(pool.ageGroup) ? (pool.ageGroup as string[]) : [];
+    const poolAgeGroups: string[] = Array.isArray(pool.ageGroup)
+      ? (pool.ageGroup as string[])
+      : typeof pool.ageGroup === "string" && pool.ageGroup
+        ? pool.ageGroup.split(",").map((g: string) => g.trim())
+        : [];
     for (const ag of poolAgeGroups) {
       if (!existing.ageGroups.includes(ag)) existing.ageGroups.push(ag);
     }
