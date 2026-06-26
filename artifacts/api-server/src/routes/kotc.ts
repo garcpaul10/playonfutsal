@@ -2289,7 +2289,7 @@ router.post("/kotc/teams/:teamId/checkout", requireAuth, async (req, res) => {
 
     // Adult season: create Stripe checkout session directly
     const stripe = await getUncachableStripeClient();
-    const APP_URL = (process.env.PUBLIC_APP_URL ?? "https://playon.replit.app").replace(/\/$/, "");
+    const APP_URL = (process.env.PUBLIC_APP_URL ?? "https://playonfutsal.vercel.app").replace(/\/$/, "");
     const priceInCents = pack.priceCents;
 
     const session = await stripe.checkout.sessions.create({
@@ -2426,7 +2426,7 @@ router.post("/kotc/pending-purchases/:id/approve", requireAuth, async (req, res)
 
     // Create Stripe checkout session
     const stripe = await getUncachableStripeClient();
-    const APP_URL = (process.env.PUBLIC_APP_URL ?? "https://playon.replit.app").replace(/\/$/, "");
+    const APP_URL = (process.env.PUBLIC_APP_URL ?? "https://playonfutsal.vercel.app").replace(/\/$/, "");
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",

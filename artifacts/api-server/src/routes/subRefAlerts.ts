@@ -137,7 +137,7 @@ router.post("/sub-ref-alerts", requirePermission("canManageAssignments"), async 
     const smsBody =
       `[PlayOn] OPEN REF SLOT: ${dateStr}. ` +
       `${notes ? notes + " " : ""}` +
-      `Log in to claim: ${process.env.APP_URL ?? "https://playon.replit.app"}/sub-ref-alerts`;
+      `Log in to claim: ${process.env.APP_URL ?? "https://playonfutsal.vercel.app"}/sub-ref-alerts`;
 
     const smsResult = await sendSmsBulk(
       refsWithPhone.map((r) => ({ phone: r.phone!, name: r.firstName ?? undefined })),

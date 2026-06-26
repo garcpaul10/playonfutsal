@@ -344,7 +344,7 @@ router.post("/tournaments/:id/deposit-checkout", requireAuth, async (req, res): 
     category: "tournament",
   };
 
-  const tournOrigin = (req.headers.origin ?? req.headers.referer ?? "https://playon.replit.app").replace(/\/$/, "");
+  const tournOrigin = (req.headers.origin ?? req.headers.referer ?? "https://playonfutsal.vercel.app").replace(/\/$/, "");
   const session = await (stripe.checkout.sessions.create as any)({
     mode: "payment",
     ui_mode: "custom",

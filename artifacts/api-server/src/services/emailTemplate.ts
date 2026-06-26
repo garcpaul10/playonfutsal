@@ -40,7 +40,7 @@ export interface EmailTemplatePayload {
   };
 }
 
-const APP_URL = (process.env.PUBLIC_APP_URL ?? "https://playon.replit.app").replace(/\/$/, "");
+const APP_URL = (process.env.PUBLIC_APP_URL ?? "https://playonfutsal.vercel.app").replace(/\/$/, "");
 
 function escapeHtml(str: string): string {
   return str
@@ -193,7 +193,7 @@ export function registrationConfirmationEmail(params: RegistrationConfirmationPa
   const { playerName, eventName, eventType, dates, times, venue, poolOrDivision, amountPaid, qrDataUri } = params;
   const subject = `You're registered — ${eventName}`;
   const preheader = `Your spot for ${eventName} is confirmed. Show your QR code at the door to check in.`;
-  const APP_URL = (process.env.PUBLIC_APP_URL ?? "https://playon.replit.app").replace(/\/$/, "");
+  const APP_URL = (process.env.PUBLIC_APP_URL ?? "https://playonfutsal.vercel.app").replace(/\/$/, "");
 
   const detailRows: { label: string; value: string }[] = [
     { label: "Event", value: escapeHtml(eventName) },

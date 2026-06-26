@@ -263,7 +263,7 @@ async function dispatchPush(payload: NotificationPayload, notificationId: number
     return;
   }
 
-  const APP_URL = (process.env.PUBLIC_APP_URL ?? "https://playon.replit.app").replace(/\/$/, "");
+  const APP_URL = (process.env.PUBLIC_APP_URL ?? "https://playonfutsal.vercel.app").replace(/\/$/, "");
   const pushPayload = {
     title: payload.subject ?? "PlayOn",
     body: payload.body,

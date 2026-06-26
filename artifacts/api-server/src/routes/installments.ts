@@ -173,7 +173,7 @@ router.post("/checkout/installment-plan", requireAuth, async (req: Request, res)
     category: body.programType,
   };
 
-  const installOrigin = (req.headers.origin ?? req.headers.referer ?? "https://playon.replit.app").replace(/\/$/, "");
+  const installOrigin = (req.headers.origin ?? req.headers.referer ?? "https://playonfutsal.vercel.app").replace(/\/$/, "");
   const session = await (stripe.checkout.sessions.create as any)({
     mode: "payment",
     ui_mode: "custom",
@@ -299,7 +299,7 @@ router.post("/admin/installments/:scheduleId/pay-next", requirePermission("canMa
     category: schedule.entityType,
   };
 
-  const nextOrigin = (req.headers.origin ?? req.headers.referer ?? "https://playon.replit.app").replace(/\/$/, "");
+  const nextOrigin = (req.headers.origin ?? req.headers.referer ?? "https://playonfutsal.vercel.app").replace(/\/$/, "");
   const session = await (stripe.checkout.sessions.create as any)({
     mode: "payment",
     ui_mode: "custom",

@@ -358,7 +358,7 @@ export async function dispatchWaitlistOffer(
   if (candidates.length === 0) return [];
 
   const [dropin] = await db.select().from(dropinsTable).where(eq(dropinsTable.id, dropinId));
-  const appUrl = (process.env.PUBLIC_APP_URL ?? "https://playon.replit.app").replace(/\/$/, "");
+  const appUrl = (process.env.PUBLIC_APP_URL ?? "https://playonfutsal.vercel.app").replace(/\/$/, "");
 
   const poolPrice = Number(pool.price ?? 0);
   let serviceFeeAmount = 0;
@@ -2026,7 +2026,7 @@ router.post("/dropins/pools/:poolId/rsvp/guest", async (req, res): Promise<void>
     const qrPayload = JSON.stringify({ spotId: spot.id, dropinId: dropin.id, sessionName: dropin.name, poolId });
     const qrDataUri = await generateQrDataUri(qrPayload);
 
-    const appUrl = (process.env.PUBLIC_APP_URL ?? "https://playon.replit.app").replace(/\/$/, "");
+    const appUrl = (process.env.PUBLIC_APP_URL ?? "https://playonfutsal.vercel.app").replace(/\/$/, "");
     const eventDate = dropin.startsAt ? new Date(dropin.startsAt).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" }) : "See event page";
 
     const { html, text } = renderEmail({
@@ -2443,7 +2443,7 @@ router.post("/dropins/pools/:poolId/checkout", requireAuth, async (req, res): Pr
     });
   }
 
-  const dropinOrigin = (req.headers.origin ?? req.headers.referer ?? "https://playon.replit.app").replace(/\/$/, "");
+  const dropinOrigin = (req.headers.origin ?? req.headers.referer ?? "https://playonfutsal.vercel.app").replace(/\/$/, "");
   let session: any;
   let clientSecret: string;
   try {
@@ -2656,7 +2656,7 @@ router.post("/dropins/spots/:spotId/pay", requireAuth, async (req, res): Promise
     });
   }
 
-  const origin = (req.headers.origin ?? req.headers.referer ?? "https://playon.replit.app").replace(/\/$/, "");
+  const origin = (req.headers.origin ?? req.headers.referer ?? "https://playonfutsal.vercel.app").replace(/\/$/, "");
   const sessionParams: any = {
     mode: "payment",
     ui_mode: "custom",

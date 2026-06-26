@@ -168,7 +168,7 @@ async function runPaymentDueReminders(): Promise<void> {
           userId: player.id,
           type: "payment_due",
           subject: "Payment due for your registration",
-          body: `Your registration for ${reg.programName} has an outstanding balance. Please pay before your first session at playon.replit.app — PlayOn`,
+          body: `Your registration for ${reg.programName} has an outstanding balance. Please pay before your first session at playonfutsal.vercel.app — PlayOn`,
           metadata: { registrationId: reg.id },
         });
         sentThisRun.add(player.id);
@@ -243,7 +243,7 @@ async function runPaymentDueReminders(): Promise<void> {
         userId: player.id,
         type: "payment_due",
         subject: "Payment due for your drop-in spot",
-        body: `You have an unpaid drop-in spot (session #${spot.entityId}). Please complete your payment at playon.replit.app — PlayOn`,
+        body: `You have an unpaid drop-in spot (session #${spot.entityId}). Please complete your payment at playonfutsal.vercel.app — PlayOn`,
         metadata: { spotId: spot.id, dropinId: spot.entityId },
       });
       sentThisRun.add(player.id);
@@ -317,7 +317,7 @@ async function runBalanceDueReminders(): Promise<void> {
         userId: player.id,
         type: "balance_due",
         subject: "Balance due before your first game",
-        body: `You have an unpaid balance for ${reg.programName} and a game is coming up within 7 days. Please pay now at playon.replit.app — PlayOn`,
+        body: `You have an unpaid balance for ${reg.programName} and a game is coming up within 7 days. Please pay now at playonfutsal.vercel.app — PlayOn`,
         metadata: { registrationId: reg.id },
       });
     }

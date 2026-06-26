@@ -18,7 +18,7 @@ import { emailConfigured, sendEmail } from "../services/email";
 
 const router: IRouter = Router();
 
-const APP_URL = (process.env.PUBLIC_APP_URL ?? "https://playon.replit.app").replace(/\/$/, "");
+const APP_URL = (process.env.PUBLIC_APP_URL ?? "https://playonfutsal.vercel.app").replace(/\/$/, "");
 
 const SAMPLE_PAYLOADS: Record<string, EmailTemplatePayload> = {
   staff_invite: {
