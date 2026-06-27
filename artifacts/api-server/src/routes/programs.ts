@@ -131,6 +131,7 @@ async function dropinTemplatePoolAggregates(templateIds: number[]): Promise<Map<
     })
     .from(dropinTemplatePoolsTable)
     .where(inArray(dropinTemplatePoolsTable.templateId, templateIds));
+  console.log(`[dropinTemplatePoolAggregates] templateIds=${JSON.stringify(templateIds)} pools=${pools.length}`);
 
   // 2. Fetch materialized dropin IDs from non-cancelled occurrences
   const occurrenceRows = await db
