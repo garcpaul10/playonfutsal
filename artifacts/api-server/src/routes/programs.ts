@@ -109,6 +109,7 @@ async function dropinPoolAggregates(dropinIds: number[]): Promise<Map<number, Dr
 interface DropinTemplatePoolAggregate {
   spotsTotal: number;
   spotsConfirmed: number;
+  poolCount: number;
   ageGroups: string[];
   gender: string | null;
   minPrice: number;
