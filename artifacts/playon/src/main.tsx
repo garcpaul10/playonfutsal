@@ -7,15 +7,12 @@ const apiUrl = import.meta.env.VITE_API_URL ?? "https://workspaceapi-server-prod
 setBaseUrl(apiUrl);
 
 if ("serviceWorker" in navigator) {
+  // Unregister any existing service workers so they don't intercept API requests
+  navigator.serviceWorker.getRegistrations().then((regs) => regs.forEach((r) => r.unregister()));
+
   window.addEventListener("load", () => {
-    navigator.serviceWorker
-      .register("/sw.js")
-      .then((reg) => {
-        console.info("[sw] Service worker registered:", reg.scope);
-      })
-      .catch((err) => {
-        console.warn("[sw] Service worker registration failed:", err);
-      });
+    // Service worker temporarily disabled — was blocking cross-origin Railway API requests
+    // navigator.serviceWorker.register("/sw.js")
   });
 
   window.addEventListener("focus", () => {
