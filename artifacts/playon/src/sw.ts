@@ -21,6 +21,15 @@ registerRoute(
   })
 );
 
+// Pass Railway API requests straight to the network — no caching
+registerRoute(
+  ({ url }) => url.hostname.includes("railway.app"),
+  new NetworkFirst({
+    cacheName: "railway-api-cache",
+    networkTimeoutSeconds: 10,
+  })
+);
+
 registerRoute(
   ({ request }) =>
     request.destination === "style" ||
