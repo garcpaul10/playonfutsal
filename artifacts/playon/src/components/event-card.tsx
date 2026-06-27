@@ -20,6 +20,7 @@ export interface EventCardProps {
   priceLabel: string;
   spotsUsed: number;
   spotsTotal: number;
+  poolCount?: number | null;
   status: EventStatus;
   secondaryBadge?: string | null;
   index?: number;
@@ -79,6 +80,7 @@ export function EventCard({
   priceLabel,
   spotsUsed,
   spotsTotal,
+  poolCount,
   status,
   secondaryBadge,
   index = 0,
@@ -216,6 +218,8 @@ export function EventCard({
                 <span>
                   {type === "King of the Court"
                     ? `${spotsUsed} team${spotsUsed !== 1 ? "s" : ""} registered${teamSize ? ` · ${teamSize}v${teamSize}` : ""}`
+                    : type === "Drop-in" && poolCount
+                    ? `${poolCount} session${poolCount !== 1 ? "s" : ""} available`
                     : `${spotsUsed}/${spotsTotal} ${type === "League" || type === "Tournament" ? "teams" : "spots"}`
                   }
                 </span>

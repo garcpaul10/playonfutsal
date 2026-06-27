@@ -259,6 +259,7 @@ export default function ExplorePage() {
                       priceLabel={displayPrice != null ? `$${displayPrice}` : "Free"}
                       spotsUsed={spotsUsed}
                       spotsTotal={spotsTotal}
+                      poolCount={isDropin ? (program.poolCount ?? null) : null}
                       status={status}
                       secondaryBadge={isKotc ? (program.sport ? (program.sport as string).toUpperCase() : null) : (program.format ?? null)}
                       teamSize={isKotc ? program.teamSize : undefined}

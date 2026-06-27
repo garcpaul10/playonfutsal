@@ -81,9 +81,10 @@ async function dropinPoolAggregates(dropinIds: number[]): Promise<Map<number, Dr
   // Step 3: aggregate per dropin (spots, age groups, time range)
   for (const pool of pools) {
     const did = pool.dropinId!;
-    const existing = result.get(did) ?? { spotsTotal: 0, spotsTaken: 0, ageGroups: [], earliestStartsAt: null, latestStartsAt: null, minPrice: null, maxPrice: null };
+    const existing = result.get(did) ?? { spotsTotal: 0, spotsTaken: 0, poolCount: 0, ageGroups: [], earliestStartsAt: null, latestStartsAt: null, minPrice: null, maxPrice: null };
     existing.spotsTotal += pool.cap ?? 0;
     existing.spotsTaken += spotsByPool.get(pool.id) ?? 0;
+    existing.poolCount += 1;
 
     const poolAgeGroups: string[] = parseAgeGroupArray(pool.ageGroup);
     for (const ag of poolAgeGroups) {
@@ -406,6 +407,7 @@ async function getAllPrograms(opts: GetAllProgramsOptions = {}) {
       price: agg?.minPrice ?? Number(d.price),
       spotsAvailable,
       spotsTotal,
+      poolCount: agg?.poolCount ?? null,
       startDate: (agg?.earliestStartsAt ?? d.startsAt).toISOString().split("T")[0],
       endDate: null,
       imageUrl: d.imageUrl ?? null,

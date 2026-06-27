@@ -490,7 +490,10 @@ function RichProgramCard({ program }: { program: any }) {
             )}
             <div className="flex items-center gap-2 text-white/50 text-xs">
               <Users className="h-3.5 w-3.5 flex-shrink-0" style={{ color: cfg.accent }} />
-              <span>{spotsTaken} / {spotsTotal} Spots</span>
+              {(program.type === "drop_in" || program.type === "dropin") && program.poolCount
+                ? <span>{program.poolCount} session{program.poolCount !== 1 ? "s" : ""} available</span>
+                : <span>{spotsTaken} / {spotsTotal} Spots</span>
+              }
             </div>
             <div className="flex items-center gap-2 text-white/50 text-xs">
               <MapPin className="h-3.5 w-3.5 flex-shrink-0" style={{ color: cfg.accent }} />
