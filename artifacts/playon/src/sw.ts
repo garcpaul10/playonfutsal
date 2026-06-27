@@ -5,6 +5,9 @@ import { NetworkFirst, CacheFirst, StaleWhileRevalidate } from "workbox-strategi
 
 declare const self: ServiceWorkerGlobalScope;
 
+self.addEventListener("install", () => self.skipWaiting());
+self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
+
 precacheAndRoute(self.__WB_MANIFEST);
 
 const navigationHandler = createHandlerBoundToURL("/index.html");
