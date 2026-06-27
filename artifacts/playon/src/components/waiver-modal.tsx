@@ -206,7 +206,7 @@ function useTopLevelProfile() {
     queryFn: async () => {
       const token = await getToken();
       const r = await fetch(
-        import.meta.env.BASE_URL.replace(/\/$/, "") + "/api/me",
+        `${API}/me`,
         { headers: { Authorization: `Bearer ${token}` } },
       );
       if (!r.ok) return null;

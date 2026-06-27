@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { PhoneInput } from "@/components/ui/phone-input";
-import { Loader2, Check, AlertCircle } from "lucide-react";
+import { Loader2, Check, AlertCircle, ChevronDown } from "lucide-react";
 import playonLogo from "@assets/PlayOn_RBG_Trans_1780083327599.png";
 
 
@@ -89,6 +89,12 @@ export default function OnboardingPage() {
   const [confirmed, setConfirmed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  const [recoveryOpen, setRecoveryOpen] = useState(false);
+  const [recoveryEmail, setRecoveryEmail] = useState("");
+  const [recoverySaving, setRecoverySaving] = useState(false);
+  const [recoveryError, setRecoveryError] = useState("");
+  const [recoveryDone, setRecoveryDone] = useState(false);
 
   const { data: myProfile, isLoading: profileLoading } = useMyProfile(!!isSignedIn && isLoaded);
 
@@ -263,6 +269,30 @@ export default function OnboardingPage() {
     }
   }
 
+  async function handleRecover(e: React.FormEvent) {
+    e.preventDefault();
+    setRecoveryError("");
+    if (!recoveryEmail.trim()) { setRecoveryError("Please enter your email address."); return; }
+    setRecoverySaving(true);
+    try {
+      const token = await getToken();
+      const res = await fetch(`${API_BASE}/me/recover-account`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ email: recoveryEmail.trim() }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body?.error ?? `Error ${res.status}`);
+      qc.invalidateQueries({ queryKey: ["me"] });
+      setRecoveryDone(true);
+      setTimeout(() => setLocation("/dashboard"), 1200);
+    } catch (err: any) {
+      setRecoveryError(err?.message ?? "Something went wrong. Please try again.");
+    } finally {
+      setRecoverySaving(false);
+    }
+  }
+
   const showsCoachManager = selectedRoles.has("coach_manager");
 
   return (
@@ -272,6 +302,56 @@ export default function OnboardingPage() {
           <div className="p-8">
             <div className="flex justify-center mb-8">
               <img src={playonLogo} alt="PlayOn Futsal" className="h-16 object-contain opacity-90" />
+            </div>
+
+            {/* Account recovery */}
+            <div className="mb-6 rounded-xl border border-[#2b4040] overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setRecoveryOpen((v) => !v)}
+                className="w-full flex items-center justify-between px-4 py-3 text-sm text-[#99a1a3] hover:text-white hover:bg-white/5 transition-colors"
+              >
+                <span>Already registered before? Recover your account</span>
+                <ChevronDown className={`h-4 w-4 transition-transform ${recoveryOpen ? "rotate-180" : ""}`} />
+              </button>
+
+              {recoveryOpen && (
+                <div className="px-4 pb-4 border-t border-[#2b4040]">
+                  {recoveryDone ? (
+                    <div className="flex items-center gap-2 pt-4 text-green-400 text-sm">
+                      <Check className="h-4 w-4" />
+                      Account restored! Redirecting…
+                    </div>
+                  ) : (
+                    <form onSubmit={handleRecover} className="space-y-3 pt-4">
+                      <p className="text-[#99a1a3] text-xs leading-relaxed">
+                        Enter the email address you used when you originally signed up. We'll link your history to your new sign-in.
+                      </p>
+                      <Input
+                        type="email"
+                        value={recoveryEmail}
+                        onChange={(e) => { setRecoveryEmail(e.target.value); setRecoveryError(""); }}
+                        placeholder="your@email.com"
+                        autoComplete="email"
+                        className="h-10 bg-[#1a2a2a] border-[#2b4040] text-white placeholder:text-[#99a1a3] focus:border-primary focus:ring-primary"
+                      />
+                      {recoveryError && (
+                        <div className="flex items-start gap-2 text-red-400 text-xs">
+                          <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                          {recoveryError}
+                        </div>
+                      )}
+                      <Button
+                        type="submit"
+                        disabled={recoverySaving}
+                        className="w-full h-9 bg-primary hover:bg-primary/85 text-primary-foreground font-semibold text-sm"
+                      >
+                        {recoverySaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Restore my account →"}
+                      </Button>
+                    </form>
+                  )}
+                </div>
+              )}
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">

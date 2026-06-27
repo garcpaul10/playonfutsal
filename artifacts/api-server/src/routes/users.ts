@@ -695,6 +695,65 @@ router.delete("/me/id-data", requireAuth, async (req: any, res): Promise<void> =
   res.json({ success: true, message: "ID data deleted. Your verified status is retained." });
 });
 
+/**
+ * POST /me/recover-account
+ * Links the current Clerk session to a legacy account matched by email.
+ * Used when a user signed up on the old email-auth instance and is now
+ * signing in with phone on the new production Clerk instance.
+ */
+router.post("/me/recover-account", requireAuth, async (req: any, res): Promise<void> => {
+  const authed = req as AuthedRequest;
+  const { email } = req.body ?? {};
+
+  if (!email || typeof email !== "string") {
+    res.status(400).json({ error: "Email is required." });
+    return;
+  }
+
+  const normalized = email.trim().toLowerCase();
+  if (!normalized.includes("@")) {
+    res.status(400).json({ error: "Please enter a valid email address." });
+    return;
+  }
+
+  // Find the legacy row by email
+  const [legacy] = await db.select().from(usersTable).where(eq(usersTable.email, normalized));
+  if (!legacy) {
+    res.status(404).json({ error: "No account found with that email address." });
+    return;
+  }
+
+  // Check if the current session already has its own row (a blank new row created on sign-in)
+  const [currentRow] = await db.select().from(usersTable).where(eq(usersTable.clerkId, authed.clerkUserId));
+
+  // Don't allow linking if the legacy row already has an active clerk_id that differs from ours
+  // (would mean someone else already claimed that account)
+  if (legacy.clerkId && legacy.clerkId !== authed.clerkUserId && currentRow?.id !== legacy.id) {
+    res.status(409).json({ error: "That account is already linked to another sign-in." });
+    return;
+  }
+
+  // Re-link the legacy row to the current Clerk session
+  const [relinked] = await db.update(usersTable)
+    .set({ clerkId: authed.clerkUserId, updatedAt: new Date() })
+    .where(eq(usersTable.id, legacy.id))
+    .returning();
+
+  // If a separate blank row was created for this clerk session, remove it
+  if (currentRow && currentRow.id !== legacy.id) {
+    await db.delete(usersTable).where(eq(usersTable.id, currentRow.id)).catch(() => {});
+  }
+
+  logger.info({ legacyId: legacy.id, clerkId: authed.clerkUserId, email: normalized }, "[POST /me/recover-account] Account re-linked");
+
+  const normalized2 = normalizeForProfileResponse(relinked);
+  try {
+    res.json(GetMyProfileResponse.parse(normalized2));
+  } catch {
+    res.json({ success: true });
+  }
+});
+
 router.get("/me/registrations", requireAuth, async (req: any, res): Promise<void> => {
   const { registrationsTable } = await import("@workspace/db");
   const authed = req as AuthedRequest;
