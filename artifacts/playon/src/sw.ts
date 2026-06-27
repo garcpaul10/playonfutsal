@@ -8,6 +8,14 @@ declare const self: ServiceWorkerGlobalScope;
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
 
+// Pass all cross-origin requests straight to the network before Workbox touches them
+self.addEventListener("fetch", (event: FetchEvent) => {
+  const url = new URL(event.request.url);
+  if (url.origin !== self.location.origin) {
+    event.respondWith(fetch(event.request));
+  }
+}, { capture: true });
+
 precacheAndRoute(self.__WB_MANIFEST);
 
 const navigationHandler = createHandlerBoundToURL("/index.html");
