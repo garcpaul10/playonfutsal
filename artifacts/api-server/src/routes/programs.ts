@@ -183,8 +183,9 @@ async function dropinTemplatePoolAggregates(templateIds: number[]): Promise<Map<
   // 4. Aggregate per template from pool rows
   for (const pool of pools) {
     const tid = pool.templateId;
-    const existing = result.get(tid) ?? { spotsTotal: 0, spotsConfirmed: 0, ageGroups: [], gender: null, minPrice: Infinity };
+    const existing = result.get(tid) ?? { spotsTotal: 0, spotsConfirmed: 0, poolCount: 0, ageGroups: [], gender: null, minPrice: Infinity };
     existing.spotsTotal += pool.cap ?? 0;
+    existing.poolCount += 1;
     const poolAgeGroups: string[] = parseAgeGroupArray(pool.ageGroup);
     for (const ag of poolAgeGroups) {
       if (!existing.ageGroups.includes(ag)) existing.ageGroups.push(ag);
@@ -507,6 +508,7 @@ async function getAllPrograms(opts: GetAllProgramsOptions = {}) {
       price,
       spotsAvailable,
       spotsTotal,
+      poolCount: tpAgg?.poolCount ?? null,
       startDate,
       endDate: null,
       imageUrl: t.imageUrl ?? null,
