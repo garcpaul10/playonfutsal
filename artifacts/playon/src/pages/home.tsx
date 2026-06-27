@@ -361,7 +361,7 @@ function RichProgramCard({ program }: { program: any }) {
   const almostFull = fillPct >= 70;
 
   const ageLabel = program.ageGroup
-    ? (Array.isArray(program.ageGroup) ? program.ageGroup : [program.ageGroup])
+    ? (Array.isArray(program.ageGroup) ? program.ageGroup.flatMap((g: string) => g.split(",").map((s: string) => s.trim())) : program.ageGroup.split(",").map((s: string) => s.trim()))
         .map((ag: string) => ag.replace("_", "-").toUpperCase())
         .join(" · ")
     : null;
