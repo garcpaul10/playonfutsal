@@ -4,8 +4,8 @@ import { Layout, AdminLayoutContext } from "@/components/layout";
 import { useAdminPermissions } from "@/hooks/use-admin-permissions";
 import { NAV_GROUPS, type NavItem, type GroupId } from "@/pages/admin/admin-nav-config";
 import {
-  ChevronDown, ChevronRight, PanelLeftClose, PanelLeftOpen, Command, Search,
-  LayoutDashboard, ShieldAlert, Plus,
+  PanelLeftClose, PanelLeftOpen, Command, Search,
+  LayoutDashboard, Plus,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -26,16 +26,11 @@ function useCollapsed() {
   return { collapsed, toggle };
 }
 
-function useOpenGroups(initialGroups: GroupId[]) {
-  const [open, setOpen] = useState<Set<GroupId>>(new Set(initialGroups));
-  const toggle = useCallback((id: GroupId) => {
-    setOpen((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  }, []);
-  return { open, toggle };
+function activeGroupForPath(location: string): GroupId | null {
+  for (const group of NAV_GROUPS) {
+    if (group.items.some((item) => location.startsWith(item.href))) return group.id;
+  }
+  return null;
 }
 
 interface AdminCommandPaletteProps {
@@ -206,9 +201,6 @@ function AdminSidebar({
   const [location] = useLocation();
   const { isSuperAdmin, can } = useAdminPermissions();
 
-  const allGroupIds = NAV_GROUPS.map((g) => g.id) as GroupId[];
-  const { open, toggle: toggleGroup } = useOpenGroups(allGroupIds);
-
   function canAccessItem(item: NavItem): boolean {
     if (isSuperAdmin) return true;
     if (!item.permission) return false;
@@ -216,16 +208,36 @@ function AdminSidebar({
   }
 
   const isDashboard = location === "/admin" || location === "/admin/";
+  const isCreate = location === "/admin/create";
+
+  // Derive which group tab is active from current URL; fall back to first accessible group
+  const accessibleGroups = NAV_GROUPS.filter((g) => g.items.some(canAccessItem));
+  const derivedGroup = activeGroupForPath(location);
+  const [activeTab, setActiveTab] = useState<GroupId>(
+    () => derivedGroup ?? (accessibleGroups[0]?.id as GroupId)
+  );
+
+  // Keep tab in sync when navigating via links (e.g. command palette)
+  useEffect(() => {
+    const g = activeGroupForPath(location);
+    if (g) setActiveTab(g);
+  }, [location]);
+
+  const activeGroup = accessibleGroups.find((g) => g.id === activeTab);
+  const activeItems = (activeGroup?.items ?? []).filter(canAccessItem);
 
   return (
     <aside
       className={cn(
         "flex flex-col h-full bg-card border-r border-border transition-all duration-200 flex-shrink-0",
-        collapsed ? "w-14" : "w-56"
+        collapsed ? "w-14" : "w-52"
       )}
     >
       {/* Header */}
-      <div className={cn("flex items-center border-b border-border h-12 px-2 flex-shrink-0", collapsed ? "justify-center" : "justify-between px-3")}>
+      <div className={cn(
+        "flex items-center border-b border-border h-12 flex-shrink-0",
+        collapsed ? "justify-center px-2" : "justify-between px-3"
+      )}>
         {!collapsed && (
           <Link href="/admin">
             <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest hover:text-foreground transition-colors">
@@ -275,8 +287,9 @@ function AdminSidebar({
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 overflow-y-auto py-2 space-y-0.5 px-2">
-        {/* Dashboard home link */}
+      <nav className="flex-1 overflow-y-auto py-2 px-2 flex flex-col gap-0.5">
+
+        {/* Dashboard */}
         {collapsed ? (
           <Tooltip>
             <TooltipTrigger asChild>
@@ -285,7 +298,7 @@ function AdminSidebar({
                   "flex items-center justify-center w-9 h-9 mx-auto rounded-lg transition-colors cursor-pointer",
                   isDashboard ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                 )}>
-                  <LayoutDashboard className="h-4.5 w-4.5" style={{ width: 18, height: 18 }} />
+                  <LayoutDashboard style={{ width: 18, height: 18 }} />
                 </div>
               </Link>
             </TooltipTrigger>
@@ -304,16 +317,16 @@ function AdminSidebar({
           </Link>
         )}
 
-        {/* Create Offering launcher */}
+        {/* Create Offering */}
         {collapsed ? (
           <Tooltip>
             <TooltipTrigger asChild>
               <Link href="/admin/create">
                 <div className={cn(
                   "flex items-center justify-center w-9 h-9 mx-auto rounded-lg transition-colors cursor-pointer",
-                  location === "/admin/create" ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                  isCreate ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                 )}>
-                  <Plus className="h-4.5 w-4.5" style={{ width: 18, height: 18 }} />
+                  <Plus style={{ width: 18, height: 18 }} />
                 </div>
               </Link>
             </TooltipTrigger>
@@ -323,7 +336,7 @@ function AdminSidebar({
           <Link href="/admin/create">
             <div className={cn(
               "flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer",
-              location === "/admin/create" ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+              isCreate ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
             )}>
               <Plus className="h-4 w-4 flex-shrink-0" />
               <span className="text-sm font-medium">Create Offering</span>
@@ -331,54 +344,68 @@ function AdminSidebar({
           </Link>
         )}
 
-        {/* Groups */}
-        {NAV_GROUPS.map((group) => {
-          const accessibleItems = group.items.filter(canAccessItem);
-          if (accessibleItems.length === 0) return null;
-          const isGroupOpen = open.has(group.id);
+        <div className="h-px bg-border my-1 mx-0.5" />
 
-          if (collapsed) {
-            return (
-              <div key={group.id} className="py-1">
-                <div className="w-full h-px bg-border my-1" />
-                {accessibleItems.map((item) => {
-                  const isActive = location.startsWith(item.href);
-                  return (
-                    <SidebarItem key={item.href} item={item} collapsed={collapsed} isActive={isActive} />
-                  );
-                })}
-              </div>
-            );
-          }
-
-          return (
-            <div key={group.id} className="mt-1">
-              <button
-                onClick={() => toggleGroup(group.id)}
-                className="w-full flex items-center gap-2 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <group.icon className="h-3 w-3 flex-shrink-0" />
-                <span>{group.label}</span>
-                <span className="ml-auto">
-                  {isGroupOpen
-                    ? <ChevronDown className="h-3 w-3" />
-                    : <ChevronRight className="h-3 w-3" />
-                  }
-                </span>
-              </button>
-              {isGroupOpen && (
-                <div className="mt-0.5 space-y-0.5">
-                  {accessibleItems.map((item) => {
-                    const isActive = location.startsWith(item.href);
-                    return (
-                      <SidebarItem key={item.href} item={item} collapsed={collapsed} isActive={isActive} />
-                    );
-                  })}
-                </div>
-              )}
+        {/* ── Tab strip (expanded) / icon strip (collapsed) ── */}
+        {collapsed ? (
+          /* Collapsed: show one icon per group; clicking selects that group and expands sidebar */
+          <div className="flex flex-col gap-0.5">
+            {accessibleGroups.map((group) => {
+              const isActive = group.id === activeTab;
+              return (
+                <Tooltip key={group.id}>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => { setActiveTab(group.id as GroupId); toggle(); }}
+                      className={cn(
+                        "flex items-center justify-center w-9 h-9 mx-auto rounded-lg transition-colors",
+                        isActive ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                      )}
+                    >
+                      <group.icon style={{ width: 18, height: 18 }} />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="text-xs">{group.label}</TooltipContent>
+                </Tooltip>
+              );
+            })}
+          </div>
+        ) : (
+          /* Expanded: tab pill row + items below */
+          <>
+            {/* Tab pills — wrap onto two rows if needed */}
+            <div className="flex flex-wrap gap-1 px-0.5 pb-1">
+              {accessibleGroups.map((group) => {
+                const isActive = group.id === activeTab;
+                return (
+                  <button
+                    key={group.id}
+                    onClick={() => setActiveTab(group.id as GroupId)}
+                    className={cn(
+                      "flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold transition-colors",
+                      isActive
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    )}
+                  >
+                    <group.icon className="h-3 w-3 flex-shrink-0" />
+                    {group.label}
+                  </button>
+                );
+              })}
             </div>
-          );
-        })}
+
+            {/* Items for the active tab */}
+            <div className="flex flex-col gap-0.5">
+              {activeItems.map((item) => {
+                const isActive = location.startsWith(item.href);
+                return (
+                  <SidebarItem key={item.href} item={item} collapsed={false} isActive={isActive} />
+                );
+              })}
+            </div>
+          </>
+        )}
       </nav>
 
       {/* Footer */}
