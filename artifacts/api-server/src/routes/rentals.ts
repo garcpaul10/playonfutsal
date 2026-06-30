@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { db, rentalsTable, rentalPricingTable, rentalBlackoutsTable, rentalSettingsTable, rentalParticipantsTable, waiverTemplatesTable, waiverSignaturesTable, dropinCourtPoolsTable, dropinsTable, usersTable } from "@workspace/db";
-import { eq, and, ne, or, isNull } from "drizzle-orm";
+import { db, rentalsTable, rentalPricingTable, rentalBlackoutsTable, rentalSettingsTable, rentalParticipantsTable, waiverTemplatesTable, waiverSignaturesTable, dropinCourtPoolsTable, dropinsTable, usersTable, courtAvailabilityTable } from "@workspace/db";
+import { eq, and, ne, or, isNull, lt, gt } from "drizzle-orm";
 import crypto from "crypto";
 import { requireAuth, requireAdmin, requirePermission } from "../middlewares/auth.js";
 import type { AuthedRequest } from "../middlewares/auth.js";
@@ -82,7 +82,7 @@ async function hasConflict(
     if (slotsOverlap(startMin, endMin, dStartMin, dEndMin)) return true;
   }
 
-  // 3. Check blackouts
+  // 3. Check rental-specific blackouts
   const blackouts = await db
     .select()
     .from(rentalBlackoutsTable)
@@ -97,6 +97,25 @@ async function hasConflict(
     if (!b.startTime || !b.endTime) return true; // all-day blackout
     if (slotsOverlap(startMin, endMin, timeToMinutes(b.startTime), timeToMinutes(b.endTime))) return true;
   }
+
+  // 4. Check court calendar blocks (admin-created via the block wizard)
+  // Blocks are stored as UTC timestamps. Slot times are wall-clock Eastern minutes,
+  // so we construct UTC-Z Date objects using the same convention as the rest of this file.
+  const slotStart = new Date(`${date}T${minutesToTime(startMin)}:00Z`);
+  const slotEnd   = new Date(`${date}T${minutesToTime(endMin)}:00Z`);
+
+  const calBlocks = await db
+    .select({ id: courtAvailabilityTable.id })
+    .from(courtAvailabilityTable)
+    .where(
+      and(
+        eq(courtAvailabilityTable.courtId, courtNumber),
+        lt(courtAvailabilityTable.startsAt, slotEnd),
+        gt(courtAvailabilityTable.endsAt, slotStart),
+      )
+    );
+
+  if (calBlocks.length > 0) return true;
 
   return false;
 }
