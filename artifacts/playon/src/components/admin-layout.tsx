@@ -5,7 +5,7 @@ import { useAdminPermissions } from "@/hooks/use-admin-permissions";
 import { NAV_GROUPS, type NavItem, type GroupId } from "@/pages/admin/admin-nav-config";
 import {
   ChevronDown, ChevronRight, PanelLeftClose, PanelLeftOpen, Command, Search,
-  LayoutDashboard, ShieldAlert,
+  LayoutDashboard, ShieldAlert, Plus,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -300,6 +300,33 @@ function AdminSidebar({
               <LayoutDashboard className="h-4 w-4 flex-shrink-0" />
               <span className="text-sm font-medium">Dashboard</span>
               {isDashboard && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />}
+            </div>
+          </Link>
+        )}
+
+        {/* Create Offering launcher */}
+        {collapsed ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Link href="/admin/create">
+                <div className={cn(
+                  "flex items-center justify-center w-9 h-9 mx-auto rounded-lg transition-colors cursor-pointer",
+                  location === "/admin/create" ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                )}>
+                  <Plus className="h-4.5 w-4.5" style={{ width: 18, height: 18 }} />
+                </div>
+              </Link>
+            </TooltipTrigger>
+            <TooltipContent side="right" className="text-xs">Create Offering</TooltipContent>
+          </Tooltip>
+        ) : (
+          <Link href="/admin/create">
+            <div className={cn(
+              "flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer",
+              location === "/admin/create" ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+            )}>
+              <Plus className="h-4 w-4 flex-shrink-0" />
+              <span className="text-sm font-medium">Create Offering</span>
             </div>
           </Link>
         )}
