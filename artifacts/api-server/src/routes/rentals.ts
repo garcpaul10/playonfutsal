@@ -284,6 +284,61 @@ router.get("/admin/rentals", requireAdmin, async (req, res): Promise<void> => {
   res.json(result);
 });
 
+// ── Admin: Create rental directly (no Stripe) ─────────────────────────────────
+
+router.post("/admin/rentals", requireAdmin, async (req, res): Promise<void> => {
+  const { courtNumber, date, startTime, pricingTierId, customerName, customerEmail, customerPhone, notes, adminNotes, paymentStatus = "unpaid" } = req.body ?? {};
+
+  if (!courtNumber || !date || !startTime || !pricingTierId) {
+    res.status(400).json({ error: "courtNumber, date, startTime, and pricingTierId are required" });
+    return;
+  }
+
+  const [tier] = await db.select().from(rentalPricingTable).where(eq(rentalPricingTable.id, Number(pricingTierId)));
+  if (!tier) {
+    res.status(404).json({ error: "Pricing tier not found" });
+    return;
+  }
+
+  const startMin = timeToMinutes(startTime);
+  const endMin = startMin + tier.durationMinutes;
+  if (endMin > 22 * 60) {
+    res.status(400).json({ error: "Booking extends past closing time (10 PM)" });
+    return;
+  }
+  const endTime = minutesToTime(endMin);
+
+  const conflict = await hasConflict(Number(courtNumber), date, startMin, endMin);
+  if (conflict) {
+    res.status(409).json({ error: "That time slot is not available" });
+    return;
+  }
+
+  // Try to find or create a user record for the customer
+  let userId = 1; // fallback to first user (admin placeholder)
+  if (customerEmail) {
+    const [existingUser] = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.email, customerEmail));
+    if (existingUser) userId = existingUser.id;
+  }
+
+  const [rental] = await db.insert(rentalsTable).values({
+    userId,
+    courtNumber: Number(courtNumber),
+    date,
+    startTime,
+    endTime,
+    durationMinutes: tier.durationMinutes,
+    pricingTierId: tier.id,
+    totalPrice: tier.price,
+    status: "confirmed",
+    paymentStatus: paymentStatus as "paid" | "unpaid",
+    notes: notes ?? null,
+    adminNotes: adminNotes ? `${customerName ?? ""} ${customerEmail ?? ""} ${customerPhone ?? ""} — ${adminNotes}`.trim() : [customerName, customerEmail, customerPhone].filter(Boolean).join(" · ") || null,
+  }).returning();
+
+  res.json(rental);
+});
+
 // ── Admin: Update rental status ────────────────────────────────────────────────
 
 router.patch("/admin/rentals/:id", requireAdmin, async (req, res): Promise<void> => {

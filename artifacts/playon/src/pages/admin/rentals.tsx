@@ -14,6 +14,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { Link } from "wouter";
 import {
   Plus, Trash2, Building2, Clock, DollarSign, CalendarX, CheckCircle2,
   XCircle, Loader2, Pencil,
@@ -461,9 +462,14 @@ export default function AdminRentals() {
   return (
     <Layout>
       <div className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-black text-foreground">Court Rentals</h1>
-          <p className="text-muted-foreground text-sm mt-1">Manage rental bookings, pricing, and availability.</p>
+        <div className="mb-8 flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-black text-foreground">Court Rentals</h1>
+            <p className="text-muted-foreground text-sm mt-1">Manage rental bookings, pricing, and availability.</p>
+          </div>
+          <Link href="/admin/rentals/new">
+            <Button className="shrink-0"><Plus className="h-4 w-4 mr-1.5" /> New Rental</Button>
+          </Link>
         </div>
 
         {/* Tabs */}
