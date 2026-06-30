@@ -35,15 +35,15 @@ function fmt12(t: string): string {
 }
 
 const STATUS_STYLES: Record<string, string> = {
-  confirmed: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
-  pending: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
-  cancelled: "bg-red-500/20 text-red-400 border-red-500/30",
+  confirmed: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  pending: "bg-yellow-100 text-yellow-700 border-yellow-200",
+  cancelled: "bg-red-100 text-red-600 border-red-200",
 };
 
 const PAY_STYLES: Record<string, string> = {
-  paid: "bg-emerald-500/20 text-emerald-400",
-  unpaid: "bg-yellow-500/20 text-yellow-400",
-  refunded: "bg-blue-500/20 text-blue-400",
+  paid: "bg-emerald-100 text-emerald-700",
+  unpaid: "bg-yellow-100 text-yellow-700",
+  refunded: "bg-blue-100 text-blue-700",
 };
 
 // ── Bookings Tab ──────────────────────────────────────────────────────────────
@@ -109,62 +109,78 @@ function BookingsTab() {
     <div>
       <div className="flex items-center gap-4 mb-6">
         <div className="flex items-center gap-2">
-          <Label className="text-white/60 text-sm">Filter by date</Label>
+          <Label className="text-muted-foreground text-sm">Filter by date</Label>
           <Input
             type="date"
             value={dateFilter}
             onChange={(e) => setDateFilter(e.target.value)}
-            className="bg-white/5 border-white/10 text-white w-44"
+            className="w-44"
           />
           {dateFilter && (
-            <button onClick={() => setDateFilter("")} className="text-white/40 hover:text-white text-xs">Clear</button>
+            <button onClick={() => setDateFilter("")} className="text-muted-foreground hover:text-foreground text-xs">Clear</button>
           )}
         </div>
       </div>
 
       {isLoading ? (
         <div className="space-y-3">
-          {[...Array(4)].map((_, i) => <div key={i} className="h-20 rounded-xl bg-white/5 animate-pulse" />)}
+          {[...Array(4)].map((_, i) => <div key={i} className="h-24 rounded-xl bg-muted animate-pulse" />)}
         </div>
       ) : rentals.length === 0 ? (
-        <div className="text-center py-16 text-white/30">
+        <div className="text-center py-16 text-muted-foreground">
           <Building2 className="h-10 w-10 mx-auto mb-3 opacity-30" />
           <p>No rentals found{dateFilter ? " for this date" : ""}.</p>
         </div>
       ) : (
         <div className="space-y-3">
           {rentals.map((r: any) => (
-            <div key={r.id} className="bg-white/5 border border-white/10 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-3">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap mb-1">
-                  <span className="text-white font-semibold">Court {r.courtNumber}</span>
-                  <Badge className={`text-xs border ${STATUS_STYLES[r.status] ?? ""}`}>{r.status}</Badge>
-                  <Badge className={`text-xs border-0 ${PAY_STYLES[r.paymentStatus] ?? ""}`}>{r.paymentStatus}</Badge>
-                </div>
-                <p className="text-white/50 text-sm">{r.date} · {fmt12(r.startTime)} – {fmt12(r.endTime)}</p>
-                {r.userName && <p className="text-white/40 text-xs mt-0.5">{r.userName}{r.userEmail ? ` · ${r.userEmail}` : ""}</p>}
-                {r.adminNotes && <p className="text-white/30 text-xs mt-1 italic">{r.adminNotes}</p>}
+            <div key={r.id} className="bg-background border border-border rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-4 shadow-sm">
+              {/* Left: court icon */}
+              <div className="hidden sm:flex h-10 w-10 rounded-lg bg-muted items-center justify-center shrink-0">
+                <Building2 className="h-5 w-5 text-muted-foreground" />
               </div>
+
+              {/* Middle: main info */}
+              <div className="flex-1 min-w-0 space-y-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-bold text-foreground">Court {r.courtNumber}</span>
+                  <Badge className={`text-xs border font-medium ${STATUS_STYLES[r.status] ?? ""}`}>{r.status}</Badge>
+                  <Badge className={`text-xs border-0 font-medium ${PAY_STYLES[r.paymentStatus] ?? ""}`}>{r.paymentStatus}</Badge>
+                  {r.checkinAt && (
+                    <Badge className="text-xs bg-emerald-100 text-emerald-700 border border-emerald-200 font-medium">✓ Checked In</Badge>
+                  )}
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  <span className="font-medium text-foreground">{r.date}</span>
+                  {" · "}
+                  {fmt12(r.startTime)} – {fmt12(r.endTime)}
+                </p>
+                {r.userName && (
+                  <p className="text-xs text-muted-foreground">
+                    <span className="font-medium">{r.userName}</span>
+                    {r.userEmail ? ` · ${r.userEmail}` : ""}
+                  </p>
+                )}
+                {r.adminNotes && <p className="text-xs text-muted-foreground italic">{r.adminNotes}</p>}
+              </div>
+
+              {/* Right: price + actions */}
               <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
-                <span className="text-emerald-400 font-bold">${Number(r.totalPrice).toFixed(2)}</span>
+                <span className="text-emerald-600 font-bold text-base">${Number(r.totalPrice).toFixed(2)}</span>
                 {r.groupWaiverToken && (
                   <button
                     title="Copy group waiver link"
-                    onClick={() => {
-                      navigator.clipboard.writeText(`${window.location.origin}/waiver/rental/${r.groupWaiverToken}`);
-                    }}
-                    className="text-white/30 hover:text-white transition-colors"
+                    onClick={() => navigator.clipboard.writeText(`${window.location.origin}/waiver/rental/${r.groupWaiverToken}`)}
+                    className="text-muted-foreground hover:text-foreground transition-colors"
                   >
                     <Copy className="h-4 w-4" />
                   </button>
                 )}
-                {r.checkinAt ? (
-                  <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-xs border">Checked In</Badge>
-                ) : r.status === "confirmed" ? (
-                  <Button size="sm" variant="outline" onClick={() => handleCheckin(r.id)}>
-                    <ClipboardCheck className="h-3.5 w-3.5 mr-1" /> Check In
+                {!r.checkinAt && r.status === "confirmed" && (
+                  <Button size="sm" variant="outline" onClick={() => handleCheckin(r.id)} disabled={checkingIn === r.id}>
+                    {checkingIn === r.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <><ClipboardCheck className="h-3.5 w-3.5 mr-1" /> Check In</>}
                   </Button>
-                ) : null}
+                )}
                 {r.status !== "cancelled" && (
                   <Button variant="destructive" size="sm" onClick={() => { setCancelId(r.id); setCancelRefund(r.paymentStatus === "paid"); }}>
                     Cancel
