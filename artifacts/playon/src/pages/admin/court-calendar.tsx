@@ -2,7 +2,7 @@ import { API_BASE } from "@/lib/api-base";
 import { useState } from "react";
 import { useAuth } from "@clerk/react";
 import { useGetMyProfile } from "@workspace/api-client-react";
-import { Redirect } from "wouter";
+import { Redirect, Link } from "wouter";
 import { Layout } from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -171,8 +171,10 @@ export default function AdminCourtCalendar() {
               <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`} />
               {isFetching ? "Refreshing…" : "Refresh"}
             </Button>
-            <Button onClick={() => setShowBlockDialog(true)} className="gap-2">
-              <Lock className="h-4 w-4" /> Block court
+            <Button asChild className="gap-2">
+              <Link href="/admin/court-calendar/block">
+                <Lock className="h-4 w-4" /> Block courts
+              </Link>
             </Button>
           </div>
         </div>

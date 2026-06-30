@@ -281,6 +281,7 @@ import AdminSubRefAlerts from "@/pages/admin/sub-ref-alerts";
 import AdminNotificationPreferences from "@/pages/admin/notification-preferences";
 import RefAlerts from "@/pages/ref-alerts";
 import AdminCourtCalendar from "@/pages/admin/court-calendar";
+import BlockCourtWizard from "@/pages/admin/court-calendar/block";
 import AdminIncidentReports from "@/pages/admin/incident-reports";
 import AdminInsurance from "@/pages/admin/insurance";
 import AdminPrivacy from "@/pages/admin/privacy";
@@ -477,6 +478,7 @@ function ClerkProviderWithRoutes() {
             <Route path="/admin/sub-ref-alerts">{() => <AdminLayout><AdminSubRefAlerts /></AdminLayout>}</Route>
             <Route path="/admin/notification-preferences">{() => <AdminLayout><AdminNotificationPreferences /></AdminLayout>}</Route>
             <Route path="/admin/court-calendar">{() => <AdminLayout><AdminCourtCalendar /></AdminLayout>}</Route>
+            <Route path="/admin/court-calendar/block" component={BlockCourtWizard} />
             <Route path="/admin/incident-reports">{() => <AdminLayout><AdminIncidentReports /></AdminLayout>}</Route>
             <Route path="/admin/insurance">{() => <AdminLayout><AdminInsurance /></AdminLayout>}</Route>
             <Route path="/admin/privacy">{() => <AdminLayout><AdminPrivacy /></AdminLayout>}</Route>
