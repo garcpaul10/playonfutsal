@@ -5,6 +5,7 @@
 import { Router, type IRouter } from "express";
 import { db, courtsTable, courtAvailabilityTable, fixturesTable, dropinsTable, dropinCourtPoolsTable, spotsTable, campDaysTable, campsTable, auditLogTable, usersTable } from "@workspace/db";
 import { eq, and, gte, lte, or, sql, inArray, isNull } from "drizzle-orm";
+import { checkCourtConflict } from "../services/courtConflict.js";
 import { requirePermission, type AuthedRequest } from "../middlewares/auth";
 
 const router: IRouter = Router();
@@ -208,16 +209,9 @@ router.post("/court-availability/blocks", requirePermission("canManageCourts"), 
     return;
   }
 
-  const conflictingFixtures = await db
-    .select()
-    .from(fixturesTable)
-    .where(
-      and(
-        eq(fixturesTable.courtId, courtId),
-        gte(fixturesTable.scheduledAt, start),
-        lte(fixturesTable.scheduledAt, end),
-      ),
-    );
+  // Warn about any existing bookings that this block will overlap (admin is creating the block
+  // intentionally, so we allow it but surface the conflicts in the response).
+  const existingConflict = await checkCourtConflict(courtId, start, end);
 
   const [dbUser] = await db.select().from(usersTable).where(eq(usersTable.clerkId, authed.clerkUserId));
   const [block] = await db.insert(courtAvailabilityTable).values({
@@ -237,7 +231,12 @@ router.post("/court-availability/blocks", requirePermission("canManageCourts"), 
     notes: JSON.stringify({ blockId: block.id, reason, startsAt, endsAt }),
   });
 
-  res.status(201).json({ block, conflictingFixtures });
+  res.status(201).json({
+    block,
+    warning: existingConflict.conflict
+      ? `Block created, but there is a conflict: ${existingConflict.reason}`
+      : null,
+  });
 });
 
 /** DELETE /court-availability/blocks/:id — remove a court block */

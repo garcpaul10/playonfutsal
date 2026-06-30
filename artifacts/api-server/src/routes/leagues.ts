@@ -8,6 +8,7 @@ import {
 } from "@workspace/db";
 import { checkUsysAgeEligibility } from "../lib/usysAgeEligibility";
 import { eq, and, or, asc, sql, ne } from "drizzle-orm";
+import { checkCourtConflict } from "../services/courtConflict.js";
 import { requireAuth, requireAdmin, requirePermission, hasPermission, type AuthedRequest } from "../middlewares/auth";
 import { getAuth } from "@clerk/express";
 import { ensureGameCard, ensureGameCardsForEntity } from "../services/gameCardService";
@@ -1608,20 +1609,11 @@ router.patch("/leagues/:id/fixtures/:fid", requirePermission("canManageLeagues")
 
     if (effectiveStart && effectiveCourt) {
       const newEnd = new Date(effectiveStart.getTime() + effectiveDuration * 60000);
-      const conflicts = await db.select().from(fixturesTable)
-        .where(and(eq(fixturesTable.courtId, effectiveCourt), eq(fixturesTable.status, "scheduled")));
-      const courtConflict = conflicts.find((c) => {
-        if (c.id === fid) return false;
-        const cs = c.scheduledAt ? new Date(c.scheduledAt) : null;
-        if (!cs) return false;
-        const ce = new Date(cs.getTime() + (c.durationMinutes ?? 90) * 60000);
-        return effectiveStart < ce && newEnd > cs;
-      });
-      if (courtConflict) {
+      const courtCheck = await checkCourtConflict(effectiveCourt, effectiveStart, newEnd, { excludeFixtureId: fid });
+      if (courtCheck.conflict) {
         res.status(409).json({
-          error: "Court conflict: another fixture is scheduled at this time on the same court",
-          conflictFixtureId: courtConflict.id,
-          conflictTime: courtConflict.scheduledAt,
+          error: courtCheck.reason ?? "Court conflict at this time",
+          conflictFixtureId: courtCheck.conflictId,
           hint: "Pass forceConflict: true to override",
         });
         return;

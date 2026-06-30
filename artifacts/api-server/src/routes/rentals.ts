@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
-import { db, rentalsTable, rentalPricingTable, rentalBlackoutsTable, rentalSettingsTable, rentalParticipantsTable, waiverTemplatesTable, waiverSignaturesTable, dropinCourtPoolsTable, dropinsTable, usersTable, courtAvailabilityTable } from "@workspace/db";
-import { eq, and, ne, or, isNull, lt, gt } from "drizzle-orm";
+import { db, rentalsTable, rentalPricingTable, rentalBlackoutsTable, rentalSettingsTable, rentalParticipantsTable, waiverTemplatesTable, waiverSignaturesTable, usersTable } from "@workspace/db";
+import { eq, and, ne } from "drizzle-orm";
+import { checkCourtConflict, easternToUtc } from "../services/courtConflict.js";
 import crypto from "crypto";
 import { requireAuth, requireAdmin, requirePermission } from "../middlewares/auth.js";
 import type { AuthedRequest } from "../middlewares/auth.js";
@@ -22,102 +23,6 @@ function minutesToTime(m: number): string {
   const h = Math.floor(m / 60);
   const min = m % 60;
   return `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
-}
-
-function slotsOverlap(aStart: number, aEnd: number, bStart: number, bEnd: number): boolean {
-  return aStart < bEnd && aEnd > bStart;
-}
-
-// Returns true if the given court/date/startMin/endMin conflicts with any existing booking,
-// dropin session, or blackout.
-async function hasConflict(
-  courtNumber: number,
-  date: string,
-  startMin: number,
-  endMin: number,
-  excludeRentalId?: number,
-): Promise<boolean> {
-  // 1. Check existing confirmed/pending rentals on this court+date
-  const existingRentals = await db
-    .select({ id: rentalsTable.id, startTime: rentalsTable.startTime, endTime: rentalsTable.endTime })
-    .from(rentalsTable)
-    .where(
-      and(
-        eq(rentalsTable.courtNumber, courtNumber),
-        eq(rentalsTable.date, date),
-        ne(rentalsTable.status, "cancelled"),
-      )
-    );
-
-  for (const r of existingRentals) {
-    if (excludeRentalId && r.id === excludeRentalId) continue;
-    if (slotsOverlap(startMin, endMin, timeToMinutes(r.startTime), timeToMinutes(r.endTime))) return true;
-  }
-
-  // 2. Check dropin sessions on this court on this date
-  // dropin_court_pools has startsAt + durationMinutes; dropin has courtId
-  const dateStart = new Date(`${date}T00:00:00Z`);
-  const dateEnd = new Date(`${date}T23:59:59Z`);
-
-  const courtDropins = await db
-    .select({
-      startsAt: dropinCourtPoolsTable.startsAt,
-      durationMinutes: dropinsTable.durationMinutes,
-    })
-    .from(dropinCourtPoolsTable)
-    .innerJoin(dropinsTable, eq(dropinCourtPoolsTable.dropinId, dropinsTable.id))
-    .where(
-      and(
-        eq(dropinsTable.courtId, courtNumber),
-        ne(dropinsTable.status, "cancelled"),
-      )
-    );
-
-  for (const d of courtDropins) {
-    if (!d.startsAt) continue;
-    const t = new Date(d.startsAt);
-    if (t < dateStart || t > dateEnd) continue;
-    const dStartMin = t.getHours() * 60 + t.getMinutes();
-    const dEndMin = dStartMin + (d.durationMinutes ?? 120);
-    if (slotsOverlap(startMin, endMin, dStartMin, dEndMin)) return true;
-  }
-
-  // 3. Check rental-specific blackouts
-  const blackouts = await db
-    .select()
-    .from(rentalBlackoutsTable)
-    .where(
-      and(
-        eq(rentalBlackoutsTable.date, date),
-        or(isNull(rentalBlackoutsTable.courtNumber), eq(rentalBlackoutsTable.courtNumber, courtNumber)),
-      )
-    );
-
-  for (const b of blackouts) {
-    if (!b.startTime || !b.endTime) return true; // all-day blackout
-    if (slotsOverlap(startMin, endMin, timeToMinutes(b.startTime), timeToMinutes(b.endTime))) return true;
-  }
-
-  // 4. Check court calendar blocks (admin-created via the block wizard)
-  // Blocks are stored as UTC timestamps. Slot times are wall-clock Eastern minutes,
-  // so we construct UTC-Z Date objects using the same convention as the rest of this file.
-  const slotStart = new Date(`${date}T${minutesToTime(startMin)}:00Z`);
-  const slotEnd   = new Date(`${date}T${minutesToTime(endMin)}:00Z`);
-
-  const calBlocks = await db
-    .select({ id: courtAvailabilityTable.id })
-    .from(courtAvailabilityTable)
-    .where(
-      and(
-        eq(courtAvailabilityTable.courtId, courtNumber),
-        lt(courtAvailabilityTable.startsAt, slotEnd),
-        gt(courtAvailabilityTable.endsAt, slotStart),
-      )
-    );
-
-  if (calBlocks.length > 0) return true;
-
-  return false;
 }
 
 // ── Public: Get pricing tiers ─────────────────────────────────────────────────
@@ -157,7 +62,9 @@ router.get("/rentals/availability", async (req, res): Promise<void> => {
     const slots: string[] = [];
     for (let start = OPEN; start + dur <= CLOSE; start += 30) {
       const end = start + dur;
-      const conflict = await hasConflict(court, date as string, start, end);
+      const slotStart = easternToUtc(date as string, minutesToTime(start));
+      const slotEnd   = easternToUtc(date as string, minutesToTime(end));
+      const { conflict } = await checkCourtConflict(court, slotStart, slotEnd);
       if (!conflict) slots.push(minutesToTime(start));
     }
     result.push({ courtNumber: court, availableSlots: slots });
@@ -191,9 +98,13 @@ router.post("/rentals/checkout", requireAuth, async (req: any, res): Promise<voi
   }
   const endTime = minutesToTime(endMin);
 
-  const conflict = await hasConflict(Number(courtNumber), date, startMin, endMin);
+  const { conflict, reason: conflictReason } = await checkCourtConflict(
+    Number(courtNumber),
+    easternToUtc(date, startTime),
+    easternToUtc(date, endTime),
+  );
   if (conflict) {
-    res.status(409).json({ error: "That time slot is no longer available. Please choose another." });
+    res.status(409).json({ error: conflictReason ?? "That time slot is no longer available. Please choose another." });
     return;
   }
 
@@ -332,9 +243,13 @@ router.post("/admin/rentals", requireAdmin, async (req, res): Promise<void> => {
   }
   const endTime = minutesToTime(endMin);
 
-  const conflict = await hasConflict(Number(courtNumber), date, startMin, endMin);
-  if (conflict) {
-    res.status(409).json({ error: "That time slot is not available" });
+  const { conflict: adminConflict, reason: adminConflictReason } = await checkCourtConflict(
+    Number(courtNumber),
+    easternToUtc(date, startTime),
+    easternToUtc(date, endTime),
+  );
+  if (adminConflict) {
+    res.status(409).json({ error: adminConflictReason ?? "That time slot is not available" });
     return;
   }
 

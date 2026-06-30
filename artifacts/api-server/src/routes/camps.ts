@@ -7,6 +7,7 @@ import {
 } from "@workspace/db";
 import { checkUsysAgeEligibility } from "../lib/usysAgeEligibility";
 import { eq, and, desc, asc, sql, isNotNull } from "drizzle-orm";
+import { checkCourtConflict, easternToUtc } from "../services/courtConflict.js";
 import { sendNotificationWithPreferences } from "../services/notifications";
 import { requireAuth, requirePermission, requireAdmin, requireSuperAdmin, hasPermission, AuthedRequest } from "../middlewares/auth";
 import { getAuth } from "@clerk/express";
@@ -413,7 +414,24 @@ router.post("/camps/:id/days", requirePermission("canManageCamps"), async (req, 
   const campId = Number(req.params.id);
   const { date, startTime, endTime, notes } = req.body;
   if (!date) { res.status(400).json({ error: "date is required" }); return; }
-  const [day] = await db.insert(campDaysTable).values({ campId, date, startTime: startTime ?? "09:00", endTime: endTime ?? "12:00", notes: notes ?? null } as typeof campDaysTable.$inferInsert).returning();
+
+  const effectiveStart = startTime ?? "09:00";
+  const effectiveEnd   = endTime   ?? "12:00";
+
+  const [camp] = await db.select({ courtId: campsTable.courtId }).from(campsTable).where(eq(campsTable.id, campId));
+  if (camp?.courtId) {
+    const { conflict, reason } = await checkCourtConflict(
+      camp.courtId,
+      easternToUtc(date, effectiveStart),
+      easternToUtc(date, effectiveEnd),
+    );
+    if (conflict) {
+      res.status(409).json({ error: `Cannot add camp day: ${reason}` });
+      return;
+    }
+  }
+
+  const [day] = await db.insert(campDaysTable).values({ campId, date, startTime: effectiveStart, endTime: effectiveEnd, notes: notes ?? null } as typeof campDaysTable.$inferInsert).returning();
   res.status(201).json(day);
 });
 

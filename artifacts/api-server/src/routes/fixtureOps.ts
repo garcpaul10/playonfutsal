@@ -14,104 +14,17 @@
  */
 import { Router, type IRouter } from "express";
 import {
-  db, fixturesTable, courtAvailabilityTable, auditLogTable,
+  db, fixturesTable, auditLogTable,
   teamMembersTable, usersTable, assignmentsTable, paymentsTable,
-  dropinsTable, campDaysTable, campsTable, guardiansTable,
+  guardiansTable,
 } from "@workspace/db";
-import { eq, and, lte, gte, ne, sql } from "drizzle-orm";
+import { eq, and, ne } from "drizzle-orm";
 import { requirePermission, type AuthedRequest } from "../middlewares/auth";
 import { sendNotificationWithPreferences } from "../services/notifications";
 import { applyPolicy } from "./cancellationEngine";
+import { checkCourtConflict } from "../services/courtConflict.js";
 
 const router: IRouter = Router();
-
-/**
- * Application-level court conflict pre-check.
- * Half-open interval overlap: [A, A+dA) ∩ [B, B+dB) ≠ ∅  iff  A < B+dB  AND  A+dA > B.
- * Strict less-than on both sides: back-to-back events (one ends exactly when the next starts) are NOT conflicts.
- * The DB trigger is the authoritative enforcement; this check gives early user-friendly errors.
- */
-async function hasCourtConflict(
-  courtId: number,
-  scheduledAt: Date,
-  durationMinutes: number,
-  excludeFixtureId?: number,
-): Promise<{ conflict: boolean; reason?: string; conflictingFixtureId?: number }> {
-  const newEndsAt = new Date(scheduledAt.getTime() + durationMinutes * 60 * 1000);
-
-  // Overlap: existing.start < newEnd (strict)  AND  existing.end > newStart (strict, via raw SQL)
-  const overlapping = await db
-    .select()
-    .from(fixturesTable)
-    .where(
-      and(
-        eq(fixturesTable.courtId, courtId),
-        ne(fixturesTable.status, "cancelled"),
-        // existing start is strictly before new end (half-open: < not <=)
-        sql`${fixturesTable.scheduledAt} < ${newEndsAt.toISOString()}::timestamptz`,
-        // existing end (start + duration) is strictly after new start
-        sql`${fixturesTable.scheduledAt} + (${fixturesTable.durationMinutes} * interval '1 minute') > ${scheduledAt.toISOString()}::timestamptz`,
-      ),
-    );
-
-  const conflicts = overlapping.filter((f) => f.id !== excludeFixtureId);
-  if (conflicts.length > 0) {
-    return {
-      conflict: true,
-      reason: "Court already has a fixture during this time slot",
-      conflictingFixtureId: conflicts[0].id,
-    };
-  }
-
-  // Check court availability blocks
-  const blocks = await db
-    .select()
-    .from(courtAvailabilityTable)
-    .where(
-      and(
-        eq(courtAvailabilityTable.courtId, courtId),
-        sql`${courtAvailabilityTable.startsAt} < ${newEndsAt.toISOString()}::timestamptz`,
-        sql`${courtAvailabilityTable.endsAt} > ${scheduledAt.toISOString()}::timestamptz`,
-      ),
-    );
-  if (blocks.length > 0) {
-    return { conflict: true, reason: `Court is blocked: ${blocks[0].reason ?? "unavailable"}` };
-  }
-
-  // Check drop-ins (cross-offering conflict)
-  const dropinConflicts = await db
-    .select()
-    .from(dropinsTable)
-    .where(
-      and(
-        eq(dropinsTable.courtId, courtId),
-        sql`${dropinsTable.startsAt} < ${newEndsAt.toISOString()}::timestamptz`,
-        sql`${dropinsTable.startsAt} + (${dropinsTable.durationMinutes} * interval '1 minute') > ${scheduledAt.toISOString()}::timestamptz`,
-        ne(dropinsTable.status, "cancelled"),
-      ),
-    );
-  if (dropinConflicts.length > 0) {
-    return { conflict: true, reason: `Court already has a drop-in session during this time slot` };
-  }
-
-  // Check camp days (cross-offering conflict)
-  const campDayConflicts = await db
-    .select({ id: campDaysTable.id, campName: campsTable.name })
-    .from(campDaysTable)
-    .innerJoin(campsTable, eq(campsTable.id, campDaysTable.campId))
-    .where(
-      and(
-        eq(campsTable.courtId, courtId),
-        sql`(${campDaysTable.date} + ${campDaysTable.startTime}::time)::timestamp AT TIME ZONE 'America/New_York' < ${newEndsAt.toISOString()}::timestamptz`,
-        sql`(${campDaysTable.date} + ${campDaysTable.endTime}::time)::timestamp AT TIME ZONE 'America/New_York' > ${scheduledAt.toISOString()}::timestamptz`,
-      ),
-    );
-  if (campDayConflicts.length > 0) {
-    return { conflict: true, reason: `Court already has a camp day during this time slot` };
-  }
-
-  return { conflict: false };
-}
 
 /** GET /fixtures/:id — get a single fixture */
 router.get("/fixtures/:id", async (req: any, res): Promise<void> => {
@@ -132,11 +45,14 @@ router.get("/fixtures/:id/conflict-check", async (req: any, res): Promise<void> 
     res.status(400).json({ error: "courtId and scheduledAt are required" });
     return;
   }
-  const result = await hasCourtConflict(
+  const start = new Date(scheduledAt);
+  const dur = parseInt(durationMinutes ?? "60");
+  const end = new Date(start.getTime() + dur * 60000);
+  const result = await checkCourtConflict(
     parseInt(courtId),
-    new Date(scheduledAt),
-    parseInt(durationMinutes ?? "60"),
-    isNaN(id) ? undefined : id,
+    start,
+    end,
+    isNaN(id) ? undefined : { excludeFixtureId: id },
   );
   res.json(result);
 });
@@ -341,9 +257,10 @@ router.post("/admin/fixtures/:id/reschedule", requirePermission("canManageSchedu
 
   // Application-level pre-check (DB trigger is the authoritative enforcement)
   if (newCourtId) {
-    const check = await hasCourtConflict(newCourtId, newScheduledAt, newDuration, id);
+    const newEndsAt = new Date(newScheduledAt.getTime() + (newDuration ?? 90) * 60000);
+    const check = await checkCourtConflict(newCourtId, newScheduledAt, newEndsAt, { excludeFixtureId: id });
     if (check.conflict) {
-      res.status(409).json({ error: check.reason, conflictingFixtureId: check.conflictingFixtureId });
+      res.status(409).json({ error: check.reason, conflictingFixtureId: check.conflictId });
       return;
     }
   }
