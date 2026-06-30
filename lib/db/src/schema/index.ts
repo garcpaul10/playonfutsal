@@ -88,5 +88,6 @@ export * from "./kotcDramaRules";
 export * from "./kotcWaitlist";
 export * from "./kotcPendingPurchases";
 export * from "./rentals";
+export * from "./rentalSettings";
 export * from "./rentalPricing";
 export * from "./rentalBlackouts";

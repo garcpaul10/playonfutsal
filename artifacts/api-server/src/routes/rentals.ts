@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, rentalsTable, rentalPricingTable, rentalBlackoutsTable, dropinCourtPoolsTable, dropinsTable, usersTable } from "@workspace/db";
+import { db, rentalsTable, rentalPricingTable, rentalBlackoutsTable, rentalSettingsTable, dropinCourtPoolsTable, dropinsTable, usersTable } from "@workspace/db";
 import { eq, and, ne, inArray, or, isNull } from "drizzle-orm";
 import { requireAuth, requireAdmin, requirePermission } from "../middlewares/auth.js";
 import type { AuthedRequest } from "../middlewares/auth.js";
@@ -438,6 +438,73 @@ router.post("/admin/rental-blackouts", requireAdmin, async (req, res): Promise<v
 router.delete("/admin/rental-blackouts/:id", requireAdmin, async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   await db.delete(rentalBlackoutsTable).where(eq(rentalBlackoutsTable.id, id));
+  res.json({ ok: true });
+});
+
+// ── Public: Get published rental settings ─────────────────────────────────────
+
+router.get("/rentals/settings", async (_req, res): Promise<void> => {
+  const [settings] = await db
+    .select()
+    .from(rentalSettingsTable)
+    .where(eq(rentalSettingsTable.isPublished, true))
+    .limit(1);
+  res.json(settings ?? null);
+});
+
+// ── Admin: Get all rental settings (including unpublished) ─────────────────────
+
+router.get("/admin/rental-settings", requireAdmin, async (_req, res): Promise<void> => {
+  const rows = await db.select().from(rentalSettingsTable).orderBy(rentalSettingsTable.createdAt);
+  res.json(rows);
+});
+
+router.post("/admin/rental-settings", requireAdmin, async (req, res): Promise<void> => {
+  const {
+    name, description, enabledCourts, openTime, closeTime,
+    advanceBookingDays, minDurationMinutes, slotIncrementMinutes,
+    cancellationHours, requiresApproval, isPublished,
+  } = req.body ?? {};
+
+  if (!name) { res.status(400).json({ error: "name is required" }); return; }
+
+  const [row] = await db.insert(rentalSettingsTable).values({
+    name,
+    description: description ?? null,
+    enabledCourts: Array.isArray(enabledCourts) ? enabledCourts.join(",") : (enabledCourts ?? "1,2"),
+    openTime: openTime ?? "08:00",
+    closeTime: closeTime ?? "22:00",
+    advanceBookingDays: advanceBookingDays ?? 30,
+    minDurationMinutes: minDurationMinutes ?? 60,
+    slotIncrementMinutes: slotIncrementMinutes ?? 30,
+    cancellationHours: cancellationHours ?? 24,
+    requiresApproval: requiresApproval ?? false,
+    isPublished: isPublished ?? false,
+  }).returning();
+
+  res.json(row);
+});
+
+router.patch("/admin/rental-settings/:id", requireAdmin, async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  const patch: Record<string, any> = { updatedAt: new Date() };
+  const fields = ["name","description","openTime","closeTime","advanceBookingDays","minDurationMinutes","slotIncrementMinutes","cancellationHours","requiresApproval","isPublished"];
+  for (const f of fields) {
+    if (req.body[f] !== undefined) patch[f] = req.body[f];
+  }
+  if (req.body.enabledCourts !== undefined) {
+    patch.enabledCourts = Array.isArray(req.body.enabledCourts)
+      ? req.body.enabledCourts.join(",")
+      : req.body.enabledCourts;
+  }
+  const [updated] = await db.update(rentalSettingsTable).set(patch).where(eq(rentalSettingsTable.id, id)).returning();
+  if (!updated) { res.status(404).json({ error: "Not found" }); return; }
+  res.json(updated);
+});
+
+router.delete("/admin/rental-settings/:id", requireAdmin, async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  await db.delete(rentalSettingsTable).where(eq(rentalSettingsTable.id, id));
   res.json({ ok: true });
 });
 

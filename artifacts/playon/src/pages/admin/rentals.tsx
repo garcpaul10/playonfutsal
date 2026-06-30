@@ -17,7 +17,7 @@ import { format } from "date-fns";
 import { Link } from "wouter";
 import {
   Plus, Trash2, Building2, Clock, DollarSign, CalendarX, CheckCircle2,
-  XCircle, Loader2, Pencil,
+  XCircle, Loader2, Pencil, Settings,
 } from "lucide-react";
 
 function useAuthHeaders() {
@@ -467,9 +467,14 @@ export default function AdminRentals() {
             <h1 className="text-3xl font-black text-foreground">Court Rentals</h1>
             <p className="text-muted-foreground text-sm mt-1">Manage rental bookings, pricing, and availability.</p>
           </div>
-          <Link href="/admin/rentals/new">
-            <Button className="shrink-0"><Plus className="h-4 w-4 mr-1.5" /> New Rental</Button>
-          </Link>
+          <div className="flex gap-2 shrink-0">
+            <Link href="/admin/rentals/setup">
+              <Button variant="outline"><Settings className="h-4 w-4 mr-1.5" /> Set Up Rentals</Button>
+            </Link>
+            <Link href="/admin/rentals/new">
+              <Button><Plus className="h-4 w-4 mr-1.5" /> New Rental</Button>
+            </Link>
+          </div>
         </div>
 
         {/* Tabs */}
