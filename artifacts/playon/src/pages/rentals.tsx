@@ -125,7 +125,20 @@ export default function RentalsPage() {
     const to   = format(addDays(today, 30), "yyyy-MM-dd");
     fetch(`${API_BASE}/rentals/unavailable-dates?from=${from}&to=${to}`)
       .then((r) => r.json())
-      .then((dates: string[]) => setUnavailableDates(new Set(dates)))
+      .then((dates: string[]) => {
+        const set = new Set<string>(dates);
+        setUnavailableDates(set);
+        // If the currently selected date is now unavailable, advance to the next open date
+        setSelectedDate((prev) => {
+          const prevStr = format(prev, "yyyy-MM-dd");
+          if (!set.has(prevStr)) return prev;
+          for (let i = 1; i <= 30; i++) {
+            const candidate = addDays(today, i);
+            if (!set.has(format(candidate, "yyyy-MM-dd"))) return candidate;
+          }
+          return prev;
+        });
+      })
       .catch(() => {});
   }, []);
 
