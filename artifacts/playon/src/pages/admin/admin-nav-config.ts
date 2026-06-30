@@ -7,7 +7,7 @@ import {
   Trophy, Target, Calendar, Users, Brain, Sparkles, Crown,
   ShieldCheck, UsersRound, Flag, Handshake, UserCog, UserPlus,
   CreditCard, TrendingUp, FileText, Percent, Tag, RefreshCw, DollarSign, Scale,
-  MapPin, CalendarRange,
+  MapPin, CalendarRange, Building2,
   Wrench, ClipboardList, AlertCircle, Lock, BookOpen, ScrollText,
   PieChart, Repeat,
   BarChart3, ShieldAlert, MessageSquare,
@@ -227,6 +227,12 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Facility",
     icon: MapPin,
     items: [
+      {
+        icon: Building2, color: "text-teal-400", bg: "bg-teal-400/10",
+        title: "Court Rentals", desc: "Bookings, pricing tiers & blackout dates",
+        href: "/admin/rentals",
+        stat: () => null,
+      },
       {
         icon: Target, color: "text-blue-400", bg: "bg-blue-400/10",
         title: "Courts", desc: "Configure court types & capacity",
