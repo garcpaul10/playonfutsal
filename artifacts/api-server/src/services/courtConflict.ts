@@ -102,8 +102,8 @@ export async function checkCourtConflict(
     .where(
       and(
         eq(campsTable.courtId, courtId),
-        sql`(${campDaysTable.date} + ${campDaysTable.startTime}::time)::timestamp AT TIME ZONE 'America/New_York' < ${e}::timestamptz`,
-        sql`(${campDaysTable.date} + ${campDaysTable.endTime}::time)::timestamp AT TIME ZONE 'America/New_York' > ${s}::timestamptz`,
+        sql`(${campDaysTable.date}::date + ${campDaysTable.startTime}::time)::timestamp AT TIME ZONE 'America/New_York' < ${e}::timestamptz`,
+        sql`(${campDaysTable.date}::date + ${campDaysTable.endTime}::time)::timestamp AT TIME ZONE 'America/New_York' > ${s}::timestamptz`,
       ),
     );
   if (campRows.length > 0) {
@@ -118,8 +118,8 @@ export async function checkCourtConflict(
       and(
         eq(rentalsTable.courtNumber, courtId),
         ne(rentalsTable.status, "cancelled"),
-        sql`(${rentalsTable.date} + ${rentalsTable.startTime}::time)::timestamp AT TIME ZONE 'America/New_York' < ${e}::timestamptz`,
-        sql`(${rentalsTable.date} + ${rentalsTable.endTime}::time)::timestamp AT TIME ZONE 'America/New_York' > ${s}::timestamptz`,
+        sql`(${rentalsTable.date}::date + ${rentalsTable.startTime}::time)::timestamp AT TIME ZONE 'America/New_York' < ${e}::timestamptz`,
+        sql`(${rentalsTable.date}::date + ${rentalsTable.endTime}::time)::timestamp AT TIME ZONE 'America/New_York' > ${s}::timestamptz`,
       ),
     );
   const rentalConflict = rentalRows.find((r) => r.id !== options.excludeRentalId);
