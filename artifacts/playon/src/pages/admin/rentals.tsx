@@ -282,33 +282,33 @@ function PricingTab() {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <p className="text-white/40 text-sm">Configure rental durations and prices shown to customers.</p>
+        <p className="text-muted-foreground text-sm">Configure rental durations and prices shown to customers.</p>
         <Button onClick={openNew} size="sm"><Plus className="h-4 w-4 mr-1" /> Add Tier</Button>
       </div>
 
       {isLoading ? (
-        <div className="space-y-3">{[...Array(3)].map((_, i) => <div key={i} className="h-16 rounded-xl bg-white/5 animate-pulse" />)}</div>
+        <div className="space-y-3">{[...Array(3)].map((_, i) => <div key={i} className="h-16 rounded-xl bg-muted animate-pulse" />)}</div>
       ) : tiers.length === 0 ? (
-        <p className="text-white/30 text-sm text-center py-10">No pricing tiers yet. Add one to enable rentals.</p>
+        <p className="text-muted-foreground text-sm text-center py-10">No pricing tiers yet. Add one to enable rentals.</p>
       ) : (
         <div className="space-y-3">
           {tiers.map((tier: any) => (
-            <div key={tier.id} className={`flex items-center gap-4 p-4 rounded-xl border transition-all ${tier.isActive ? "bg-white/5 border-white/10" : "bg-white/2 border-white/5 opacity-50"}`}>
+            <div key={tier.id} className={`flex items-center gap-4 p-4 rounded-xl border transition-all shadow-sm ${tier.isActive ? "bg-background border-border" : "bg-muted border-border opacity-50"}`}>
               <div className="flex-1 min-w-0">
-                <p className="text-white font-semibold">{tier.name}</p>
-                <p className="text-white/40 text-xs">
+                <p className="text-foreground font-semibold">{tier.name}</p>
+                <p className="text-muted-foreground text-xs">
                   {tier.durationMinutes >= 60
                     ? `${tier.durationMinutes / 60}hr${tier.durationMinutes > 60 ? "s" : ""}`
                     : `${tier.durationMinutes} min`}
                 </p>
               </div>
-              <span className="text-emerald-400 font-bold">${Number(tier.price).toFixed(2)}</span>
+              <span className="text-emerald-600 font-bold">${Number(tier.price).toFixed(2)}</span>
               <div className="flex items-center gap-2">
-                <button onClick={() => handleToggle(tier)} className="text-white/30 hover:text-white transition-colors" title={tier.isActive ? "Deactivate" : "Activate"}>
-                  {tier.isActive ? <CheckCircle2 className="h-4 w-4 text-emerald-400" /> : <XCircle className="h-4 w-4" />}
+                <button onClick={() => handleToggle(tier)} className="text-muted-foreground hover:text-foreground transition-colors" title={tier.isActive ? "Deactivate" : "Activate"}>
+                  {tier.isActive ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> : <XCircle className="h-4 w-4" />}
                 </button>
-                <button onClick={() => openEdit(tier)} className="text-white/30 hover:text-white transition-colors"><Pencil className="h-4 w-4" /></button>
-                <button onClick={() => handleDelete(tier.id)} className="text-white/30 hover:text-red-400 transition-colors"><Trash2 className="h-4 w-4" /></button>
+                <button onClick={() => openEdit(tier)} className="text-muted-foreground hover:text-foreground transition-colors"><Pencil className="h-4 w-4" /></button>
+                <button onClick={() => handleDelete(tier.id)} className="text-muted-foreground hover:text-destructive transition-colors"><Trash2 className="h-4 w-4" /></button>
               </div>
             </div>
           ))}
@@ -409,30 +409,30 @@ function BlackoutsTab() {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <p className="text-white/40 text-sm">Block dates or time ranges when courts are unavailable for rental.</p>
+        <p className="text-muted-foreground text-sm">Block dates or time ranges when courts are unavailable for rental.</p>
         <Button onClick={() => setShowForm(true)} size="sm"><Plus className="h-4 w-4 mr-1" /> Add Blackout</Button>
       </div>
 
       {isLoading ? (
-        <div className="space-y-3">{[...Array(3)].map((_, i) => <div key={i} className="h-16 rounded-xl bg-white/5 animate-pulse" />)}</div>
+        <div className="space-y-3">{[...Array(3)].map((_, i) => <div key={i} className="h-16 rounded-xl bg-muted animate-pulse" />)}</div>
       ) : blackouts.length === 0 ? (
-        <p className="text-white/30 text-sm text-center py-10">No blackout dates set.</p>
+        <p className="text-muted-foreground text-sm text-center py-10">No blackout dates set.</p>
       ) : (
         <div className="space-y-3">
           {blackouts.map((b: any) => (
-            <div key={b.id} className="flex items-center gap-4 p-4 rounded-xl border bg-white/5 border-white/10">
-              <CalendarX className="h-5 w-5 text-red-400 shrink-0" />
+            <div key={b.id} className="flex items-center gap-4 p-4 rounded-xl border bg-background border-border shadow-sm">
+              <CalendarX className="h-5 w-5 text-red-500 shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="text-white font-semibold">
+                <p className="text-foreground font-semibold">
                   {b.date}
                   {b.courtNumber ? ` · Court ${b.courtNumber}` : " · All Courts"}
                 </p>
-                <p className="text-white/40 text-xs">
+                <p className="text-muted-foreground text-xs">
                   {b.startTime && b.endTime ? `${fmt12(b.startTime)} – ${fmt12(b.endTime)}` : "All day"}
                   {b.reason ? ` · ${b.reason}` : ""}
                 </p>
               </div>
-              <button onClick={() => handleDelete(b.id)} className="text-white/30 hover:text-red-400 transition-colors">
+              <button onClick={() => handleDelete(b.id)} className="text-muted-foreground hover:text-destructive transition-colors">
                 <Trash2 className="h-4 w-4" />
               </button>
             </div>
