@@ -257,6 +257,7 @@ import AdminRefundPolicies from "@/pages/admin/refund-policies";
 import AdminPayouts from "@/pages/admin/payouts";
 import AdminAiScheduling from "@/pages/admin/ai-scheduling";
 import AdminAiAssistant from "@/pages/admin/ai-assistant";
+import AdminCreate from "@/pages/admin/create";
 import AdminRentals from "@/pages/admin/rentals";
 import NewRentalWizard from "@/pages/admin/rentals/new";
 import RentalSetupWizard from "@/pages/admin/rentals/setup";
@@ -453,6 +454,7 @@ function ClerkProviderWithRoutes() {
             <Route path="/admin/payouts">{() => <AdminLayout><AdminPayouts /></AdminLayout>}</Route>
             <Route path="/admin/ai-scheduling">{() => <AdminLayout><AdminAiScheduling /></AdminLayout>}</Route>
             <Route path="/admin/ai-assistant">{() => <AdminLayout><AdminAiAssistant /></AdminLayout>}</Route>
+            <Route path="/admin/create" component={AdminCreate} />
             <Route path="/admin/rentals/setup" component={RentalSetupWizard} />
             <Route path="/admin/rentals/new" component={NewRentalWizard} />
             <Route path="/admin/rentals">{() => <AdminLayout><AdminRentals /></AdminLayout>}</Route>

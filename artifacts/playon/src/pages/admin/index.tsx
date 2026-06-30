@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   Users, DollarSign, Calendar, Trophy, Activity,
   AlertCircle, Flag, ScanLine, CreditCard, ChevronRight,
-  UserPlus, HeartPulse, ClipboardCheck, ShieldAlert, Building2,
+  UserPlus, HeartPulse, ClipboardCheck, ShieldAlert, Building2, Plus,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -173,7 +173,7 @@ export default function Admin() {
 
   const QUICK_ACTIONS = [
     { icon: ScanLine,    label: "Start Check-In",  href: checkinHref,             color: "text-green-400",   bg: "bg-green-400/10" },
-    { icon: Calendar,    label: "Create Drop-In",  href: "/admin/dropins",        color: "text-blue-400",    bg: "bg-blue-400/10" },
+    { icon: Plus,        label: "Create Offering", href: "/admin/create",         color: "text-primary",     bg: "bg-primary/10" },
     { icon: Building2,   label: "Court Rentals",   href: "/admin/rentals",        color: "text-teal-400",    bg: "bg-teal-400/10" },
     { icon: Flag,        label: "Post Sub Alert",  href: "/admin/sub-ref-alerts", color: "text-orange-400",  bg: "bg-orange-400/10" },
     { icon: CreditCard,  label: "View Payments",   href: "/admin/payments",       color: "text-emerald-400", bg: "bg-emerald-400/10" },
