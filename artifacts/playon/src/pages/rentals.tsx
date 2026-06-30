@@ -8,7 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { loadStripe, type Stripe } from "@stripe/stripe-js";
 import { CheckoutElementsProvider, PaymentElement, useCheckout } from "@stripe/react-stripe-js/checkout";
 import {
-  Calendar, Clock, CheckCircle2, ArrowLeft, Loader2, Building2, ChevronRight,
+  Calendar, Clock, CheckCircle2, ArrowLeft, Loader2, Building2, ChevronRight, Users,
 } from "lucide-react";
 import { format, addDays, startOfToday, parseISO } from "date-fns";
 
@@ -108,6 +108,7 @@ export default function RentalsPage() {
   const [availLoading, setAvailLoading] = useState(false);
   const [selectedCourt, setSelectedCourt] = useState<number | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const [headcount, setHeadcount] = useState(1);
 
   // Payment
   const [stripePromise, setStripePromise] = useState<Promise<Stripe | null> | null>(null);
@@ -115,7 +116,7 @@ export default function RentalsPage() {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   // Booking summary for confirmation
-  const [bookedSummary, setBookedSummary] = useState<{ date: string; court: number; start: string; end: string; name: string } | null>(null);
+  const [bookedSummary, setBookedSummary] = useState<{ date: string; court: number; start: string; end: string; name: string; waiverToken?: string } | null>(null);
 
   // Load pricing tiers
   useEffect(() => {
@@ -169,6 +170,7 @@ export default function RentalsPage() {
           startTime: selectedSlot,
           pricingTierId: selectedTier.id,
           courtNumber: selectedCourt,
+          headcount,
         }),
       });
       const data = await res.json();
@@ -185,6 +187,7 @@ export default function RentalsPage() {
         start: selectedSlot,
         end: addMinutes(selectedSlot, selectedTier.durationMinutes),
         name: selectedTier.name,
+        waiverToken: data.groupWaiverToken,
       });
       setStep("payment");
     } catch (err: any) {
@@ -216,7 +219,29 @@ export default function RentalsPage() {
                 </p>
               </div>
             )}
-            <p className="text-white/40 text-sm mb-6">A confirmation email has been sent to you.</p>
+            <p className="text-white/40 text-sm mb-4">A confirmation email has been sent with your group waiver link.</p>
+            {bookedSummary?.waiverToken && (
+              <div className="bg-white/5 border border-white/10 rounded-xl p-4 mb-6 text-left">
+                <p className="text-white/60 text-xs font-semibold uppercase tracking-wide mb-2 flex items-center gap-2">
+                  <Users className="h-3.5 w-3.5" /> Group Waiver Link
+                </p>
+                <p className="text-white/50 text-xs mb-3">Share this with everyone joining you so they can sign before arriving.</p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 text-xs bg-white/5 rounded px-2 py-1.5 text-white/70 truncate">
+                    {window.location.origin}/waiver/rental/{bookedSummary.waiverToken}
+                  </code>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(`${window.location.origin}/waiver/rental/${bookedSummary!.waiverToken}`);
+                      toast({ title: "Link copied!" });
+                    }}
+                    className="text-xs px-3 py-1.5 rounded bg-primary text-primary-foreground font-medium shrink-0"
+                  >
+                    Copy
+                  </button>
+                </div>
+              </div>
+            )}
             <Button onClick={() => setLocation("/")} className="w-full">Back to Home</Button>
           </div>
         </div>
@@ -391,20 +416,35 @@ export default function RentalsPage() {
             </div>
           )}
 
-          {/* Book button */}
+          {/* Headcount + Book */}
           {selectedCourt && selectedSlot && selectedTier && (
             <div className="sticky bottom-4">
-              <div className="bg-[#111118] border border-white/10 rounded-2xl p-4 flex items-center gap-4 shadow-2xl">
-                <div className="flex-1 min-w-0">
-                  <p className="text-white font-semibold text-sm">{courts.find((c) => c.id === selectedCourt)?.name ?? `Court ${selectedCourt}`} · {selectedTier.name}</p>
-                  <p className="text-white/40 text-xs">{format(selectedDate, "EEE, MMM d")} · {fmt12(selectedSlot)} – {fmt12(addMinutes(selectedSlot, selectedTier.durationMinutes))}</p>
+              <div className="bg-[#111118] border border-white/10 rounded-2xl p-4 shadow-2xl space-y-3">
+                {/* Headcount picker */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-white text-sm font-semibold flex items-center gap-1.5">
+                      <Users className="h-4 w-4 text-white/40" /> How many people (including you)?
+                    </p>
+                    <p className="text-white/30 text-xs">Used to track group waiver signing</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => setHeadcount(Math.max(1, headcount - 1))} className="w-8 h-8 rounded-lg bg-white/10 text-white font-bold hover:bg-white/20 transition-colors">−</button>
+                    <span className="text-white font-bold text-lg w-6 text-center">{headcount}</span>
+                    <button onClick={() => setHeadcount(Math.min(20, headcount + 1))} className="w-8 h-8 rounded-lg bg-white/10 text-white font-bold hover:bg-white/20 transition-colors">+</button>
+                  </div>
                 </div>
-                <div className="text-right shrink-0">
-                  <p className="text-emerald-400 font-black text-lg">${Number(selectedTier.price).toFixed(2)}</p>
+                {/* Summary + book */}
+                <div className="flex items-center gap-4">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white font-semibold text-sm">{courts.find((c) => c.id === selectedCourt)?.name ?? `Court ${selectedCourt}`} · {selectedTier.name}</p>
+                    <p className="text-white/40 text-xs">{format(selectedDate, "EEE, MMM d")} · {fmt12(selectedSlot)} – {fmt12(addMinutes(selectedSlot, selectedTier.durationMinutes))}</p>
+                  </div>
+                  <p className="text-emerald-400 font-black text-lg shrink-0">${Number(selectedTier.price).toFixed(2)}</p>
+                  <Button onClick={handleBook} disabled={checkoutLoading} className="shrink-0">
+                    {checkoutLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Book <ChevronRight className="h-4 w-4 ml-1" /></>}
+                  </Button>
                 </div>
-                <Button onClick={handleBook} disabled={checkoutLoading} className="shrink-0">
-                  {checkoutLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Book <ChevronRight className="h-4 w-4 ml-1" /></>}
-                </Button>
               </div>
             </div>
           )}

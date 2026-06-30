@@ -89,5 +89,6 @@ export * from "./kotcWaitlist";
 export * from "./kotcPendingPurchases";
 export * from "./rentals";
 export * from "./rentalSettings";
+export * from "./rentalParticipants";
 export * from "./rentalPricing";
 export * from "./rentalBlackouts";

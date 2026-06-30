@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
-import { db, rentalsTable, rentalPricingTable, rentalBlackoutsTable, rentalSettingsTable, dropinCourtPoolsTable, dropinsTable, usersTable } from "@workspace/db";
-import { eq, and, ne, inArray, or, isNull } from "drizzle-orm";
+import { db, rentalsTable, rentalPricingTable, rentalBlackoutsTable, rentalSettingsTable, rentalParticipantsTable, waiverTemplatesTable, waiverSignaturesTable, dropinCourtPoolsTable, dropinsTable, usersTable } from "@workspace/db";
+import { eq, and, ne, or, isNull } from "drizzle-orm";
+import crypto from "crypto";
 import { requireAuth, requireAdmin, requirePermission } from "../middlewares/auth.js";
 import type { AuthedRequest } from "../middlewares/auth.js";
 import { getUncachableStripeClient } from "../lib/stripe.js";
@@ -150,7 +151,7 @@ router.get("/rentals/availability", async (req, res): Promise<void> => {
 
 router.post("/rentals/checkout", requireAuth, async (req: any, res): Promise<void> => {
   const authed = req as AuthedRequest;
-  const { date, startTime, pricingTierId, courtNumber } = req.body ?? {};
+  const { date, startTime, pricingTierId, courtNumber, headcount = 1 } = req.body ?? {};
 
   if (!date || !startTime || !pricingTierId || !courtNumber) {
     res.status(400).json({ error: "date, startTime, pricingTierId, and courtNumber are required" });
@@ -183,6 +184,8 @@ router.post("/rentals/checkout", requireAuth, async (req: any, res): Promise<voi
     return;
   }
 
+  const groupWaiverToken = crypto.randomBytes(16).toString("hex");
+
   // Create rental in pending state
   const [rental] = await db.insert(rentalsTable).values({
     userId: dbUser.id,
@@ -195,6 +198,8 @@ router.post("/rentals/checkout", requireAuth, async (req: any, res): Promise<voi
     totalPrice: tier.price,
     status: "pending",
     paymentStatus: "unpaid",
+    headcount: Number(headcount),
+    groupWaiverToken,
   }).returning();
 
   const stripe = await getUncachableStripeClient();
@@ -441,6 +446,117 @@ router.delete("/admin/rental-blackouts/:id", requireAdmin, async (req, res): Pro
   res.json({ ok: true });
 });
 
+// ── Public: Get group waiver page data ────────────────────────────────────────
+
+router.get("/rentals/waiver/:token", async (req, res): Promise<void> => {
+  const { token } = req.params;
+  const [rental] = await db
+    .select()
+    .from(rentalsTable)
+    .where(eq(rentalsTable.groupWaiverToken, token));
+
+  if (!rental || rental.status === "cancelled") {
+    res.status(404).json({ error: "Rental not found" });
+    return;
+  }
+
+  const [waiver] = await db
+    .select()
+    .from(waiverTemplatesTable)
+    .where(eq(waiverTemplatesTable.isActive, true))
+    .orderBy(waiverTemplatesTable.version)
+    .limit(1);
+
+  const participants = await db
+    .select()
+    .from(rentalParticipantsTable)
+    .where(eq(rentalParticipantsTable.rentalId, rental.id));
+
+  res.json({
+    rental: {
+      id: rental.id,
+      date: rental.date,
+      startTime: rental.startTime,
+      endTime: rental.endTime,
+      courtNumber: rental.courtNumber,
+      headcount: (rental as any).headcount ?? 1,
+    },
+    waiver: waiver ?? null,
+    signedCount: participants.filter((p) => p.signedWaiver).length,
+    headcount: (rental as any).headcount ?? 1,
+  });
+});
+
+// ── Public: Sign group waiver ─────────────────────────────────────────────────
+
+router.post("/rentals/waiver/:token/sign", async (req, res): Promise<void> => {
+  const { token } = req.params;
+  const { name, email, phone, signatureData, signatureType = "typed" } = req.body ?? {};
+
+  if (!name || !signatureData) {
+    res.status(400).json({ error: "name and signatureData are required" });
+    return;
+  }
+
+  const [rental] = await db
+    .select()
+    .from(rentalsTable)
+    .where(eq(rentalsTable.groupWaiverToken, token));
+
+  if (!rental || rental.status === "cancelled") {
+    res.status(404).json({ error: "Rental not found" });
+    return;
+  }
+
+  const [waiver] = await db
+    .select()
+    .from(waiverTemplatesTable)
+    .where(eq(waiverTemplatesTable.isActive, true))
+    .orderBy(waiverTemplatesTable.version)
+    .limit(1);
+
+  const [participant] = await db.insert(rentalParticipantsTable).values({
+    rentalId: rental.id,
+    name,
+    email: email ?? null,
+    phone: phone ?? null,
+    signedWaiver: true,
+    waiverSignedAt: new Date(),
+    waiverTemplateId: waiver?.id ?? null,
+    signatureData,
+    signatureType,
+    ipAddress: req.ip ?? null,
+    userAgent: req.headers["user-agent"] ?? null,
+  }).returning();
+
+  res.json({ ok: true, participantId: participant.id });
+});
+
+// ── Admin: Get participants + waiver status for a rental ──────────────────────
+
+router.get("/admin/rentals/:id/participants", requireAdmin, async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  const participants = await db
+    .select()
+    .from(rentalParticipantsTable)
+    .where(eq(rentalParticipantsTable.rentalId, id))
+    .orderBy(rentalParticipantsTable.createdAt);
+  res.json(participants);
+});
+
+// ── Admin: Check in a rental ──────────────────────────────────────────────────
+
+router.post("/admin/rentals/:id/checkin", requireAdmin, async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  const [updated] = await db
+    .update(rentalsTable)
+    .set({ checkinAt: new Date(), updatedAt: new Date() } as any)
+    .where(eq(rentalsTable.id, id))
+    .returning();
+  if (!updated) { res.status(404).json({ error: "Not found" }); return; }
+  res.json(updated);
+});
+
 // ── Public: Get published rental settings ─────────────────────────────────────
 
 router.get("/rentals/settings", async (_req, res): Promise<void> => {
@@ -519,21 +635,22 @@ export async function handleRentalPayment(session: any): Promise<void> {
   const [rental] = await db.select().from(rentalsTable).where(eq(rentalsTable.id, rentalId));
   if (!rental) return;
 
-  await db.update(rentalsTable).set({
+  const [updatedRental] = await db.update(rentalsTable).set({
     status: "confirmed",
     paymentStatus: "paid",
     stripePaymentIntentId: piId || rental.stripePaymentIntentId,
     updatedAt: new Date(),
-  }).where(eq(rentalsTable.id, rentalId));
+  }).where(eq(rentalsTable.id, rentalId)).returning();
 
-  // Send confirmation email
+  // Send confirmation + group waiver link email
   try {
+    const waiverUrl = `${APP_URL}/waiver/rental/${(updatedRental as any)?.groupWaiverToken ?? (rental as any).groupWaiverToken}`;
     await sendNotificationWithPreferences({
       userId: rental.userId,
       type: "payment_receipt",
       subject: "Rental Confirmed — PlayOn",
-      body: `Your Court ${rental.courtNumber} rental is confirmed for ${rental.date} from ${rental.startTime} to ${rental.endTime}. See you there!`,
-      metadata: { rentalId: rental.id },
+      body: `Your Court ${rental.courtNumber} rental is confirmed for ${rental.date} from ${rental.startTime} to ${rental.endTime}.\n\nShare this link with everyone joining you so they can sign the waiver before arriving:\n${waiverUrl}\n\nSee you there!`,
+      metadata: { rentalId: rental.id, groupWaiverUrl: waiverUrl },
     });
   } catch (err) {
     console.error("[rentals] confirmation notification failed:", err);

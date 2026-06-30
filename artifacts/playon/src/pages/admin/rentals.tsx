@@ -17,7 +17,7 @@ import { format } from "date-fns";
 import { Link } from "wouter";
 import {
   Plus, Trash2, Building2, Clock, DollarSign, CalendarX, CheckCircle2,
-  XCircle, Loader2, Pencil, Settings,
+  XCircle, Loader2, Pencil, Settings, Users, ClipboardCheck, Copy,
 } from "lucide-react";
 
 function useAuthHeaders() {
@@ -56,6 +56,7 @@ function BookingsTab() {
   const [cancelId, setCancelId] = useState<number | null>(null);
   const [cancelRefund, setCancelRefund] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [checkingIn, setCheckingIn] = useState<number | null>(null);
 
   const { data: rentals = [], isLoading } = useQuery({
     queryKey: ["admin-rentals", dateFilter],
@@ -66,6 +67,20 @@ function BookingsTab() {
       return res.json();
     },
   });
+
+  const handleCheckin = async (id: number) => {
+    setCheckingIn(id);
+    try {
+      const h = await getHeaders();
+      const res = await fetch(`${API_BASE}/admin/rentals/${id}/checkin`, { method: "POST", headers: h });
+      if (res.ok) {
+        toast({ title: "Checked in!" });
+        qc.invalidateQueries({ queryKey: ["admin-rentals"] });
+      }
+    } finally {
+      setCheckingIn(null);
+    }
+  };
 
   const handleCancel = async () => {
     if (!cancelId) return;
@@ -130,8 +145,26 @@ function BookingsTab() {
                 {r.userName && <p className="text-white/40 text-xs mt-0.5">{r.userName}{r.userEmail ? ` · ${r.userEmail}` : ""}</p>}
                 {r.adminNotes && <p className="text-white/30 text-xs mt-1 italic">{r.adminNotes}</p>}
               </div>
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
                 <span className="text-emerald-400 font-bold">${Number(r.totalPrice).toFixed(2)}</span>
+                {r.groupWaiverToken && (
+                  <button
+                    title="Copy group waiver link"
+                    onClick={() => {
+                      navigator.clipboard.writeText(`${window.location.origin}/waiver/rental/${r.groupWaiverToken}`);
+                    }}
+                    className="text-white/30 hover:text-white transition-colors"
+                  >
+                    <Copy className="h-4 w-4" />
+                  </button>
+                )}
+                {r.checkinAt ? (
+                  <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-xs border">Checked In</Badge>
+                ) : r.status === "confirmed" ? (
+                  <Button size="sm" variant="outline" onClick={() => handleCheckin(r.id)}>
+                    <ClipboardCheck className="h-3.5 w-3.5 mr-1" /> Check In
+                  </Button>
+                ) : null}
                 {r.status !== "cancelled" && (
                   <Button variant="destructive" size="sm" onClick={() => { setCancelId(r.id); setCancelRefund(r.paymentStatus === "paid"); }}>
                     Cancel

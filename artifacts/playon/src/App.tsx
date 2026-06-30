@@ -262,6 +262,7 @@ import AdminRentals from "@/pages/admin/rentals";
 import NewRentalWizard from "@/pages/admin/rentals/new";
 import RentalSetupWizard from "@/pages/admin/rentals/setup";
 import RentalsPage from "@/pages/rentals";
+import WaiverRentalPage from "@/pages/waiver-rental";
 import StaffEarnings from "@/pages/staff/earnings";
 import StaffGameCards from "@/pages/staff/game-cards";
 import GameCardDetail from "@/pages/staff/game-card-detail";
@@ -502,6 +503,7 @@ function ClerkProviderWithRoutes() {
             <Route path="/kotc/teams/:teamId">{() => <KotcTeamPage />}</Route>
             <Route path="/kotc/leaderboard">{() => <KotcLeaderboardPage />}</Route>
             <Route path="/rentals" component={RentalsPage} />
+            <Route path="/waiver/rental/:token">{(params) => <WaiverRentalPage params={params} />}</Route>
             <Route path="/ref-alerts" component={RefAlerts} />
 
             <Route path="/checkout" component={Checkout} />
