@@ -439,6 +439,7 @@ function LayoutShell({ children }: { children: React.ReactNode }) {
 
   const navLinks = [
     { href: "/explore", label: "Explore", requiresAuth: false },
+    { href: "/rentals", label: "Rentals", requiresAuth: false },
     { href: "/me", label: "Dashboard", requiresAuth: true },
     { href: "/account", label: "Settings", requiresAuth: true },
   ].filter((link) => !link.requiresAuth || isSignedIn);

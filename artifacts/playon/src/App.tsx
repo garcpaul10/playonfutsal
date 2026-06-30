@@ -257,6 +257,8 @@ import AdminRefundPolicies from "@/pages/admin/refund-policies";
 import AdminPayouts from "@/pages/admin/payouts";
 import AdminAiScheduling from "@/pages/admin/ai-scheduling";
 import AdminAiAssistant from "@/pages/admin/ai-assistant";
+import AdminRentals from "@/pages/admin/rentals";
+import RentalsPage from "@/pages/rentals";
 import StaffEarnings from "@/pages/staff/earnings";
 import StaffGameCards from "@/pages/staff/game-cards";
 import GameCardDetail from "@/pages/staff/game-card-detail";
@@ -449,6 +451,7 @@ function ClerkProviderWithRoutes() {
             <Route path="/admin/payouts">{() => <AdminLayout><AdminPayouts /></AdminLayout>}</Route>
             <Route path="/admin/ai-scheduling">{() => <AdminLayout><AdminAiScheduling /></AdminLayout>}</Route>
             <Route path="/admin/ai-assistant">{() => <AdminLayout><AdminAiAssistant /></AdminLayout>}</Route>
+            <Route path="/admin/rentals">{() => <AdminLayout><AdminRentals /></AdminLayout>}</Route>
 
             <Route path="/staff/earnings" component={StaffEarnings} />
             <Route path="/staff/game-cards/:id" component={GameCardDetail} />
@@ -492,6 +495,7 @@ function ClerkProviderWithRoutes() {
             <Route path="/kotc/my-teams">{() => <KotcMyTeamsPage />}</Route>
             <Route path="/kotc/teams/:teamId">{() => <KotcTeamPage />}</Route>
             <Route path="/kotc/leaderboard">{() => <KotcLeaderboardPage />}</Route>
+            <Route path="/rentals" component={RentalsPage} />
             <Route path="/ref-alerts" component={RefAlerts} />
 
             <Route path="/checkout" component={Checkout} />

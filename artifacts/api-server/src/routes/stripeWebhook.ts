@@ -10,6 +10,7 @@ import {
   staffProfilesTable, venuesTable, payoutsTable,
 } from "@workspace/db";
 import { handleKotcLifePurchase } from "./kotc";
+import { handleRentalPayment } from "./rentals";
 import { eq, and, sql, or, isNull } from "drizzle-orm";
 import { getUncachableStripeClient } from "../lib/stripe";
 import { restoreReservedCredits } from "../lib/creditUtils";
@@ -1264,6 +1265,8 @@ router.post("/stripe/webhook", async (req: Request, res: Response): Promise<void
           await handleMembershipCheckout(session);
         } else if (session.metadata?.type === "kotc_life_purchase") {
           await handleKotcLifePurchase(session);
+        } else if (session.metadata?.type === "rental") {
+          await handleRentalPayment(session);
         } else {
           await handleCheckoutComplete(session);
         }

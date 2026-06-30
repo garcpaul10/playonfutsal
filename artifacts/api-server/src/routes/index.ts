@@ -65,6 +65,7 @@ import ageGroupWaiversRouter from "./ageGroupWaivers";
 import messagingRouter from "./messaging";
 import notificationsInboxRouter from "./notificationsInbox";
 import kotcRouter from "./kotc";
+import rentalsRouter from "./rentals";
 
 const router: IRouter = Router();
 
@@ -145,5 +146,6 @@ router.use(messagingRouter);
 router.use(notificationsInboxRouter);
 router.use(dropinTemplatesRouter);
 router.use(kotcRouter);
+router.use(rentalsRouter);
 
 export default router;
