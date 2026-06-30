@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
-import { db, rentalsTable, rentalPricingTable, rentalBlackoutsTable, rentalSettingsTable, rentalParticipantsTable, waiverTemplatesTable, waiverSignaturesTable, usersTable } from "@workspace/db";
+import { db, rentalsTable, rentalPricingTable, rentalBlackoutsTable, rentalSettingsTable, rentalParticipantsTable, waiverTemplatesTable, waiverSignaturesTable, usersTable, courtsTable } from "@workspace/db";
 import { eq, and, ne } from "drizzle-orm";
+import { addDays, format as fmtDate, parseISO } from "date-fns";
 import { checkCourtConflict, easternToUtc } from "../services/courtConflict.js";
 import crypto from "crypto";
 import { requireAuth, requireAdmin, requirePermission } from "../middlewares/auth.js";
@@ -34,6 +35,59 @@ router.get("/rentals/pricing", async (_req, res): Promise<void> => {
     .where(eq(rentalPricingTable.isActive, true))
     .orderBy(rentalPricingTable.sortOrder, rentalPricingTable.durationMinutes);
   res.json(tiers);
+});
+
+// ── Public: Unavailable dates for the picker ─────────────────────────────────
+// Returns an array of YYYY-MM-DD strings where NO court has any open slot.
+// Checks the first slot (8 AM) and last slot (9 PM) per court — if both are
+// blocked on every schedulable court, the whole day is considered unavailable.
+
+router.get("/rentals/unavailable-dates", async (req, res): Promise<void> => {
+  const { from, to } = req.query as { from?: string; to?: string };
+  if (!from || !to) { res.status(400).json({ error: "from and to are required" }); return; }
+
+  // Build date range
+  const start = parseISO(from);
+  const end   = parseISO(to);
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+    res.status(400).json({ error: "invalid date format" }); return;
+  }
+
+  const courts = await db
+    .select({ id: courtsTable.id })
+    .from(courtsTable)
+    .where(eq(courtsTable.availableForScheduling, true));
+
+  if (courts.length === 0) { res.json([]); return; }
+
+  const OPEN_TIME  = "08:00";
+  const CLOSE_TIME = "21:30"; // last slot start = 9:30 PM for 30-min booking
+  const unavailable: string[] = [];
+
+  let cursor = start;
+  while (cursor <= end) {
+    const dateStr = fmtDate(cursor, "yyyy-MM-dd");
+    let anyCourtHasSlot = false;
+
+    for (const court of courts) {
+      // Check just the opening slot and the closing slot — if either is free, the day has availability
+      const [openStart, openEnd] = [easternToUtc(dateStr, OPEN_TIME), easternToUtc(dateStr, "08:30")];
+      const [closeStart, closeEnd] = [easternToUtc(dateStr, CLOSE_TIME), easternToUtc(dateStr, "22:00")];
+
+      const { conflict: openBlocked }  = await checkCourtConflict(court.id, openStart,  openEnd);
+      const { conflict: closeBlocked } = await checkCourtConflict(court.id, closeStart, closeEnd);
+
+      if (!openBlocked || !closeBlocked) {
+        anyCourtHasSlot = true;
+        break;
+      }
+    }
+
+    if (!anyCourtHasSlot) unavailable.push(dateStr);
+    cursor = addDays(cursor, 1);
+  }
+
+  res.json(unavailable);
 });
 
 // ── Public: Get availability for a date + duration ────────────────────────────

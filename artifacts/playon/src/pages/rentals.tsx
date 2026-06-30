@@ -10,7 +10,7 @@ import { CheckoutElementsProvider, PaymentElement, useCheckout } from "@stripe/r
 import {
   Calendar, Clock, CheckCircle2, ArrowLeft, Loader2, Building2, ChevronRight, Users,
 } from "lucide-react";
-import { format, addDays, startOfToday, parseISO } from "date-fns";
+import { format, addDays, startOfToday, parseISO, isBefore, isAfter } from "date-fns";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -103,6 +103,7 @@ export default function RentalsPage() {
   // Selections
   const today = startOfToday();
   const [selectedDate, setSelectedDate] = useState<Date>(addDays(today, 1));
+  const [unavailableDates, setUnavailableDates] = useState<Set<string>>(new Set());
   const [selectedTier, setSelectedTier] = useState<PricingTier | null>(null);
   const [availability, setAvailability] = useState<CourtAvailability[]>([]);
   const [availLoading, setAvailLoading] = useState(false);
@@ -117,6 +118,16 @@ export default function RentalsPage() {
 
   // Booking summary for confirmation
   const [bookedSummary, setBookedSummary] = useState<{ date: string; court: number; start: string; end: string; name: string; waiverToken?: string } | null>(null);
+
+  // Load unavailable dates for the next 30 days so the picker can grey them out
+  useEffect(() => {
+    const from = format(addDays(today, 1), "yyyy-MM-dd");
+    const to   = format(addDays(today, 30), "yyyy-MM-dd");
+    fetch(`${API_BASE}/rentals/unavailable-dates?from=${from}&to=${to}`)
+      .then((r) => r.json())
+      .then((dates: string[]) => setUnavailableDates(new Set(dates)))
+      .catch(() => {});
+  }, []);
 
   // Load pricing tiers
   useEffect(() => {
@@ -304,13 +315,19 @@ export default function RentalsPage() {
             </h2>
             <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
               {dateOptions.map((d) => {
-                const isSelected = format(d, "yyyy-MM-dd") === format(selectedDate, "yyyy-MM-dd");
+                const dateStr = format(d, "yyyy-MM-dd");
+                const isSelected = dateStr === format(selectedDate, "yyyy-MM-dd");
+                const isUnavailable = unavailableDates.has(dateStr);
                 return (
                   <button
                     key={d.toISOString()}
-                    onClick={() => setSelectedDate(d)}
-                    className={`flex-shrink-0 flex flex-col items-center px-4 py-3 rounded-xl border transition-all ${
-                      isSelected
+                    onClick={() => !isUnavailable && setSelectedDate(d)}
+                    disabled={isUnavailable}
+                    title={isUnavailable ? "No availability — court blocked" : undefined}
+                    className={`flex-shrink-0 flex flex-col items-center px-4 py-3 rounded-xl border transition-all relative ${
+                      isUnavailable
+                        ? "bg-white/3 border-white/5 text-white/20 cursor-not-allowed opacity-50"
+                        : isSelected
                         ? "bg-primary border-primary text-white"
                         : "bg-white/5 border-white/10 text-white/60 hover:border-white/30 hover:text-white"
                     }`}
@@ -318,6 +335,11 @@ export default function RentalsPage() {
                     <span className="text-xs font-semibold uppercase tracking-wide">{format(d, "EEE")}</span>
                     <span className="text-xl font-black leading-none mt-0.5">{format(d, "d")}</span>
                     <span className="text-xs opacity-70">{format(d, "MMM")}</span>
+                    {isUnavailable && (
+                      <span className="absolute bottom-1 left-1/2 -translate-x-1/2 text-[9px] font-bold text-red-400/70 uppercase tracking-wider leading-none">
+                        Closed
+                      </span>
+                    )}
                   </button>
                 );
               })}
