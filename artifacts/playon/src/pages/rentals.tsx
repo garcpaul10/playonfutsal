@@ -90,6 +90,15 @@ export default function RentalsPage() {
 
   const [tiers, setTiers] = useState<PricingTier[]>([]);
   const [tiersLoading, setTiersLoading] = useState(true);
+  const [courts, setCourts] = useState<{ id: number; name: string }[]>([]);
+
+  // Load courts for real names
+  useEffect(() => {
+    fetch(`${API_BASE}/courts`)
+      .then((r) => r.json())
+      .then((data: any[]) => setCourts(data.map((c) => ({ id: c.id, name: c.name }))))
+      .catch(() => {});
+  }, []);
 
   // Selections
   const today = startOfToday();
@@ -197,7 +206,7 @@ export default function RentalsPage() {
             {bookedSummary && (
               <div className="bg-white/5 border border-white/10 rounded-2xl p-5 text-left mb-6 space-y-2">
                 <p className="text-white/60 text-sm flex items-center gap-2">
-                  <Building2 className="h-4 w-4" /> Court {bookedSummary.court} — {bookedSummary.name}
+                  <Building2 className="h-4 w-4" /> {courts.find((c) => c.id === bookedSummary.court)?.name ?? `Court ${bookedSummary.court}`} — {bookedSummary.name}
                 </p>
                 <p className="text-white/60 text-sm flex items-center gap-2">
                   <Calendar className="h-4 w-4" /> {bookedSummary.date}
@@ -228,7 +237,7 @@ export default function RentalsPage() {
 
             {bookedSummary && (
               <div className="bg-white/5 border border-white/10 rounded-2xl p-4 mb-6 space-y-1">
-                <p className="text-white font-semibold">Court {bookedSummary.court} Rental — {bookedSummary.name}</p>
+                <p className="text-white font-semibold">{courts.find((c) => c.id === bookedSummary.court)?.name ?? `Court ${bookedSummary.court}`} Rental — {bookedSummary.name}</p>
                 <p className="text-white/50 text-sm">{bookedSummary.date}</p>
                 <p className="text-white/50 text-sm">{fmt12(bookedSummary.start)} – {fmt12(bookedSummary.end)}</p>
                 <p className="text-emerald-400 font-bold text-lg">${Number(selectedTier?.price ?? 0).toFixed(2)}</p>
@@ -344,14 +353,13 @@ export default function RentalsPage() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {[1, 2].map((courtNum) => {
-                    const court = availability.find((a) => a.courtNumber === courtNum);
-                    const slots = court?.availableSlots ?? [];
+                  {availability.map(({ courtNumber: courtNum, availableSlots: slots }) => {
+                    const courtName = courts.find((c) => c.id === courtNum)?.name ?? `Court ${courtNum}`;
                     return (
                       <div key={courtNum} className="bg-white/5 border border-white/10 rounded-2xl p-4">
                         <p className="text-white font-semibold mb-3 flex items-center gap-2">
                           <Building2 className="h-4 w-4 text-white/40" />
-                          Court {courtNum}
+                          {courtName}
                         </p>
                         {slots.length === 0 ? (
                           <p className="text-white/30 text-sm">No availability on this day</p>
@@ -388,7 +396,7 @@ export default function RentalsPage() {
             <div className="sticky bottom-4">
               <div className="bg-[#111118] border border-white/10 rounded-2xl p-4 flex items-center gap-4 shadow-2xl">
                 <div className="flex-1 min-w-0">
-                  <p className="text-white font-semibold text-sm">Court {selectedCourt} · {selectedTier.name}</p>
+                  <p className="text-white font-semibold text-sm">{courts.find((c) => c.id === selectedCourt)?.name ?? `Court ${selectedCourt}`} · {selectedTier.name}</p>
                   <p className="text-white/40 text-xs">{format(selectedDate, "EEE, MMM d")} · {fmt12(selectedSlot)} – {fmt12(addMinutes(selectedSlot, selectedTier.durationMinutes))}</p>
                 </div>
                 <div className="text-right shrink-0">
