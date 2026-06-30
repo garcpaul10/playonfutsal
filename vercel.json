@@ -2,5 +2,6 @@
   "framework": null,
   "buildCommand": "pnpm run build",
   "outputDirectory": "dist",
-  "installCommand": "cd ../.. && pnpm install --ignore-scripts --no-frozen-lockfile"
+  "installCommand": "cd ../.. && pnpm install --ignore-scripts --no-frozen-lockfile",
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }
