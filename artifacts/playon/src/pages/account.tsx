@@ -604,7 +604,7 @@ function NotificationsSection() {
       const res = await fetch(`${API_BASE}/notification-preferences/push-subscription`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ endpoint: sub.endpoint, p256dh: keyToBase64(p256dhKey), auth: keyToBase64(authKey) }),
+        body: JSON.stringify({ endpoint: sub.endpoint, keys: { p256dh: keyToBase64(p256dhKey), auth: keyToBase64(authKey) } }),
       });
       if (!res.ok) throw new Error(`Server error ${res.status}`);
       setPushSubscribed(true);
