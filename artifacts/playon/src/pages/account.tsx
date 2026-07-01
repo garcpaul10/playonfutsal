@@ -37,6 +37,25 @@ interface NotifPref {
 
 const SMS_IMPORTANT = ["waitlist_movement", "cancellation_rainout", "payment_receipt", "schedule_change"];
 
+const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined;
+
+function isIosSafari(): boolean {
+  const ua = navigator.userAgent;
+  return /iP(hone|od|ad)/.test(ua) && /WebKit/.test(ua) && !/CriOS|FxiOS|OPiOS/.test(ua);
+}
+function isInStandaloneMode(): boolean {
+  return (
+    ("standalone" in window.navigator && (window.navigator as any).standalone === true) ||
+    window.matchMedia("(display-mode: standalone)").matches
+  );
+}
+function urlBase64ToUint8Array(base64String: string): Uint8Array {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = atob(base64);
+  return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
+}
+
 function useCountdown(expiresAt: string | null | undefined): string | null {
   const [remaining, setRemaining] = React.useState<number | null>(null);
   React.useEffect(() => {
@@ -512,6 +531,13 @@ function NotificationsSection() {
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
 
+  // Push notification state
+  const [pushSupported, setPushSupported] = useState(false);
+  const [pushSubscribed, setPushSubscribed] = useState(false);
+  const [pushDenied, setPushDenied] = useState(false);
+  const [enablingPush, setEnablingPush] = useState(false);
+  const iosNeedsHomeScreen = isIosSafari() && !isInStandaloneMode();
+
   useEffect(() => {
     (async () => {
       try {
@@ -527,6 +553,63 @@ function NotificationsSection() {
       }
     })();
   }, []);
+
+  useEffect(() => {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window) || !VAPID_PUBLIC_KEY) return;
+    setPushSupported(true);
+    if (Notification.permission === "denied") { setPushDenied(true); return; }
+    navigator.serviceWorker.ready.then(async (reg) => {
+      const sub = await reg.pushManager.getSubscription();
+      setPushSubscribed(!!sub);
+    });
+  }, []);
+
+  async function enablePush() {
+    if (!VAPID_PUBLIC_KEY) return;
+    setEnablingPush(true);
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") {
+        setPushDenied(permission === "denied");
+        toast({ title: "Notifications blocked", description: "Allow notifications in your browser settings.", variant: "destructive" });
+        return;
+      }
+      const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) });
+      const token = await getToken();
+      await fetch(`${API_BASE}/notification-preferences/push-subscription`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ endpoint: sub.endpoint, p256dh: btoa(String.fromCharCode(...new Uint8Array(sub.getKey("p256dh")!))), auth: btoa(String.fromCharCode(...new Uint8Array(sub.getKey("auth")!))) }),
+      });
+      setPushSubscribed(true);
+      toast({ title: "Push notifications enabled!" });
+    } catch (e: any) {
+      toast({ title: "Could not enable push", description: e.message, variant: "destructive" });
+    } finally {
+      setEnablingPush(false);
+    }
+  }
+
+  async function disablePush() {
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        const token = await getToken();
+        await fetch(`${API_BASE}/notification-preferences/push-subscription`, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ endpoint: sub.endpoint }),
+        });
+        await sub.unsubscribe();
+      }
+      setPushSubscribed(false);
+      toast({ title: "Push notifications disabled" });
+    } catch {
+      toast({ title: "Could not disable push", variant: "destructive" });
+    }
+  }
 
   function toggle(index: number, channel: "channelEmail" | "channelSms" | "channelPush") {
     setPrefs((prev) => prev.map((p, i) => (i === index ? { ...p, [channel]: !p[channel] } : p)));
@@ -557,6 +640,55 @@ function NotificationsSection() {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">Choose how you want to receive notifications for each type of event.</p>
+
+      {/* iOS: needs Add to Home Screen first */}
+      {iosNeedsHomeScreen && (
+        <div className="p-4 rounded-lg border border-amber-200 bg-amber-50 flex gap-3 items-start text-sm">
+          <span className="text-xl leading-none shrink-0">📱</span>
+          <div>
+            <p className="font-semibold text-amber-900">Add to Home Screen to enable push notifications</p>
+            <p className="text-amber-800/80 text-xs mt-1 leading-relaxed">
+              On iPhone and iPad, push notifications only work when PlayOn is installed as an app.
+              Tap the <strong>Share</strong> button in Safari, then choose <strong>"Add to Home Screen"</strong>.
+              Once installed, open the app from your home screen and return here to enable push.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Push blocked in browser */}
+      {pushDenied && (
+        <div className="p-3 rounded-lg border border-destructive/20 bg-destructive/5 flex gap-2 items-start text-sm">
+          <span className="text-destructive">⚠️</span>
+          <span className="text-muted-foreground">
+            Push notifications are <strong className="text-foreground">blocked</strong>. Click the lock icon in your address bar and allow notifications, then refresh.
+          </span>
+        </div>
+      )}
+
+      {/* Push enable prompt */}
+      {pushSupported && !pushSubscribed && !pushDenied && !iosNeedsHomeScreen && (
+        <div className="p-4 rounded-lg border border-primary/20 bg-primary/5 flex flex-col sm:flex-row sm:items-center gap-3">
+          <Bell className="h-5 w-5 text-primary shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="font-medium text-sm">Enable push notifications</p>
+            <p className="text-muted-foreground text-xs mt-0.5">Get instant alerts on this device — even when the app is in the background.</p>
+          </div>
+          <Button size="sm" onClick={enablePush} disabled={enablingPush} className="shrink-0">
+            {enablingPush ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null}
+            Enable
+          </Button>
+        </div>
+      )}
+
+      {/* Push active */}
+      {pushSubscribed && (
+        <div className="p-3 rounded-lg border border-primary/20 bg-primary/5 flex flex-col sm:flex-row sm:items-center gap-3">
+          <CheckCircle2 className="h-5 w-5 text-primary shrink-0" />
+          <p className="flex-1 text-sm font-medium">Push notifications are active on this device</p>
+          <Button size="sm" variant="outline" onClick={disablePush} className="shrink-0 text-muted-foreground">Disable</Button>
+        </div>
+      )}
 
       {prefs.length === 0 ? (
         <Card><CardContent className="py-8 text-center text-muted-foreground">No notification preferences found.</CardContent></Card>
