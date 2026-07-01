@@ -603,6 +603,12 @@ export default function KotcTeamPage() {
                               Acting captain: {actingCap ? `${String(actingCap.firstName ?? "")} ${String(actingCap.lastName ?? "")}`.trim() : "Unknown"}
                             </p>
                           )}
+                          <a href={`/kotc/battles/${String(b.id)}/live`}>
+                            <Button size="sm" className="w-full gap-1.5 text-xs bg-green-600 hover:bg-green-700 text-white mb-1">
+                              <ListOrdered className="h-3 w-3" />
+                              View Live Queue
+                            </Button>
+                          </a>
                           <div className="flex gap-2">
                             <Button
                               size="sm"

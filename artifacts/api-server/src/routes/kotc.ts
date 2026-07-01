@@ -345,6 +345,36 @@ router.post("/kotc/seasons/:seasonId/battles", requireAdmin, async (req, res) =>
       notes: notes || null,
     }).returning();
 
+    // Notify all teams in this season that a new battle has been scheduled
+    {
+      const allTeams = await db
+        .select()
+        .from(kotcTeamsTable)
+        .where(eq(kotcTeamsTable.seasonId, seasonId));
+      const allTeamIds = allTeams.map((t) => t.id);
+      if (allTeamIds.length > 0) {
+        const allPlayers = await db
+          .select()
+          .from(kotcTeamPlayersTable)
+          .where(and(
+            inArray(kotcTeamPlayersTable.teamId, allTeamIds),
+            eq(kotcTeamPlayersTable.status, "active"),
+          ));
+        const uniqueUids = [...new Set(allPlayers.map((p) => p.userId))];
+        const when = new Date(scheduledAt);
+        const dateStr = when.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+        for (const uid of uniqueUids) {
+          sendMultiChannelNotification(["push", "in_app"], {
+            userId: uid,
+            type: "kotc_battle_available",
+            subject: "⚔️ New Battle Scheduled!",
+            body: `A new Kings of the Court battle has been added on ${dateStr}. Register your team now before spots fill up!`,
+            link: `/kotc/seasons/${seasonId}`,
+          }).catch(() => {});
+        }
+      }
+    }
+
     // Pre-battle 30-min reminder: schedule notification to all registered teams 30 min before start
     if (scheduledAt) {
       const msUntilStart = new Date(scheduledAt).getTime() - Date.now();
@@ -3536,6 +3566,55 @@ router.post("/kotc/teams/:teamId/join-request", requireAuth, async (req, res) =>
   } catch (err) {
     console.error("[kotc] POST join-request:", err);
     res.status(500).json({ error: "Failed to send join request" });
+  }
+});
+
+// ─── Live Battle State (aggregated, low-latency polling endpoint) ─────────────
+
+router.get("/kotc/battles/:battleId/live-state", requireAuth, async (req, res) => {
+  try {
+    const battleId = Number(req.params.battleId);
+    const [battle] = await db.select().from(kotcBattlesTable).where(eq(kotcBattlesTable.id, battleId));
+    if (!battle) return void res.status(404).json({ error: "Battle not found" });
+
+    const queues = await db
+      .select({
+        id: kotcRotationQueuesTable.id,
+        teamId: kotcRotationQueuesTable.teamId,
+        courtNumber: kotcRotationQueuesTable.courtNumber,
+        position: kotcRotationQueuesTable.position,
+        status: kotcRotationQueuesTable.status,
+        graceExpiresAt: kotcRotationQueuesTable.graceExpiresAt,
+        teamName: kotcTeamsTable.name,
+        teamColor: kotcTeamsTable.color,
+        livesBalance: kotcTeamsTable.livesBalance,
+      })
+      .from(kotcRotationQueuesTable)
+      .leftJoin(kotcTeamsTable, eq(kotcTeamsTable.id, kotcRotationQueuesTable.teamId))
+      .where(and(
+        eq(kotcRotationQueuesTable.battleId, battleId),
+        sql`${kotcRotationQueuesTable.status} NOT IN ('bowed_out')`,
+      ))
+      .orderBy(asc(kotcRotationQueuesTable.courtNumber), asc(kotcRotationQueuesTable.position));
+
+    const activeCards = await db
+      .select({
+        id: kotcGameCardsTable.id,
+        courtNumber: kotcGameCardsTable.courtNumber,
+        team1Id: kotcGameCardsTable.team1Id,
+        team2Id: kotcGameCardsTable.team2Id,
+        scannedAt: kotcGameCardsTable.scannedAt,
+        status: kotcGameCardsTable.status,
+      })
+      .from(kotcGameCardsTable)
+      .where(and(
+        eq(kotcGameCardsTable.battleId, battleId),
+        eq(kotcGameCardsTable.status, "in_progress"),
+      ));
+
+    res.json({ battle, queues, activeCards });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch live state" });
   }
 });
 

@@ -72,6 +72,8 @@ export default function AdminKingsOfTheCourt() {
   const [lifePacksJson, setLifePacksJson] = useState("");
   const [waitlistWindowInput, setWaitlistWindowInput] = useState(15);
   const [showWaitlist, setShowWaitlist] = useState<number | null>(null);
+  const [disputeCardId, setDisputeCardId] = useState<number | null>(null);
+  const [disputeForm, setDisputeForm] = useState({ newWinnerTeamId: "", overrideNotes: "" });
 
   const [creditForm, setCreditForm] = useState({ amount: 3, reason: "" });
 
@@ -139,6 +141,44 @@ export default function AdminKingsOfTheCourt() {
       if (!res.ok) return [];
       return res.json();
     },
+  });
+
+  const { data: gameCards = [] } = useQuery({
+    queryKey: ["kotc-game-cards", selectedSeasonId],
+    enabled: !!selectedSeasonId,
+    refetchInterval: 15_000,
+    queryFn: async () => {
+      const token = await getToken();
+      const res = await authFetch(token, `${API}/kotc/seasons/${selectedSeasonId}/game-cards`);
+      if (!res.ok) return [];
+      return res.json() as Promise<Array<{
+        id: number; battleId: number; courtNumber: number;
+        team1Id: number; team2Id: number; winnerTeamId: number | null;
+        loserTeamId: number | null; status: string; isDisputed: boolean;
+        scannedAt: string; completedAt: string | null; notes: string | null;
+      }>>;
+    },
+  });
+
+  const resolveDispute = useMutation({
+    mutationFn: async ({ cardId, newWinnerTeamId, overrideNotes }: { cardId: number; newWinnerTeamId: number; overrideNotes: string }) => {
+      const token = await getToken();
+      const res = await authFetch(token, `${API}/kotc/game-cards/${cardId}/dispute`, {
+        method: "POST",
+        body: JSON.stringify({ newWinnerTeamId, overrideNotes }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["kotc-game-cards", selectedSeasonId] });
+      qc.invalidateQueries({ queryKey: ["kotc-teams", selectedSeasonId] });
+      qc.invalidateQueries({ queryKey: ["kotc-leaderboard", selectedSeasonId] });
+      toast({ title: "Dispute resolved — lives adjusted" });
+      setDisputeCardId(null);
+      setDisputeForm({ newWinnerTeamId: "", overrideNotes: "" });
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
   const createDramaRule = useMutation({
@@ -427,6 +467,7 @@ export default function AdminKingsOfTheCourt() {
               <TabsTrigger value="battles" className="gap-2"><Swords className="h-3.5 w-3.5" />Battles</TabsTrigger>
               <TabsTrigger value="teams" className="gap-2"><Users className="h-3.5 w-3.5" />Teams</TabsTrigger>
               <TabsTrigger value="leaderboard" className="gap-2"><Trophy className="h-3.5 w-3.5" />Leaderboard</TabsTrigger>
+              <TabsTrigger value="game-cards" className="gap-2"><AlertTriangle className="h-3.5 w-3.5" />Game Cards</TabsTrigger>
               <TabsTrigger value="drama" className="gap-2"><Zap className="h-3.5 w-3.5" />Drama</TabsTrigger>
               <TabsTrigger value="config" className="gap-2"><Settings className="h-3.5 w-3.5" />Config</TabsTrigger>
             </TabsList>
@@ -492,6 +533,15 @@ export default function AdminKingsOfTheCourt() {
                         >
                           <UserCheck className="h-3 w-3" />
                           Mod View
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => window.open(`/kotc/battles/${b.id}/live`, "_blank")}
+                          className="gap-1 text-xs text-green-600 border-green-500/30"
+                        >
+                          <Swords className="h-3 w-3" />
+                          Live Queue
                         </Button>
                         {String(b.status) === "active" && (
                           <>
@@ -702,6 +752,82 @@ export default function AdminKingsOfTheCourt() {
                         ))}
                       </tbody>
                     </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="game-cards" className="space-y-4">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-400" />
+                  Game Cards & Disputes
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {gameCards.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">No game cards recorded yet for this season.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {gameCards.map((card) => {
+                      const battle = battles.find((b: Record<string, unknown>) => Number(b.id) === card.battleId);
+                      const team1 = teams.find((t: Record<string, unknown>) => Number(t.id) === card.team1Id);
+                      const team2 = teams.find((t: Record<string, unknown>) => Number(t.id) === card.team2Id);
+                      const winner = teams.find((t: Record<string, unknown>) => Number(t.id) === card.winnerTeamId);
+                      const isInProgress = card.status === "in_progress";
+                      return (
+                        <div
+                          key={card.id}
+                          className={`rounded-xl border p-3 flex items-center gap-3 ${
+                            card.isDisputed ? "border-amber-500/30 bg-amber-500/5" :
+                            isInProgress ? "border-green-500/30 bg-green-500/5" :
+                            "border-border bg-card"
+                          }`}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap text-sm">
+                              <span className="font-medium text-foreground">{String(team1?.name ?? card.team1Id)}</span>
+                              <span className="text-muted-foreground text-xs">vs</span>
+                              <span className="font-medium text-foreground">{String(team2?.name ?? card.team2Id)}</span>
+                            </div>
+                            <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground flex-wrap">
+                              {battle && <span>Battle {format(new Date(String((battle as Record<string, unknown>).scheduledAt)), "MMM d")}</span>}
+                              <span>Court {card.courtNumber}</span>
+                              {winner && !isInProgress && (
+                                <span className="text-green-600 font-medium">Winner: {String(winner.name)}</span>
+                              )}
+                              {card.isDisputed && (
+                                <span className="text-amber-600 font-semibold flex items-center gap-1">
+                                  <AlertTriangle className="h-3 w-3" />Disputed
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`text-[11px] px-2 py-0.5 rounded font-medium border ${
+                              isInProgress ? "bg-green-500/10 text-green-600 border-green-500/20" :
+                              card.isDisputed ? "bg-amber-500/10 text-amber-600 border-amber-500/20" :
+                              "bg-muted text-muted-foreground border-border"
+                            }`}>
+                              {isInProgress ? "Live" : card.isDisputed ? "Disputed" : "Completed"}
+                            </span>
+                            {card.status === "completed" && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="gap-1 text-xs text-amber-600 border-amber-500/30 hover:bg-amber-500/10"
+                                onClick={() => { setDisputeCardId(card.id); setDisputeForm({ newWinnerTeamId: "", overrideNotes: "" }); }}
+                              >
+                                <AlertTriangle className="h-3 w-3" />
+                                Dispute
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>
@@ -1044,6 +1170,69 @@ export default function AdminKingsOfTheCourt() {
               disabled={creditLives.isPending}
             >
               {creditLives.isPending ? "Crediting..." : `Add ${creditForm.amount} Lives`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dispute Resolution Dialog */}
+      <Dialog open={disputeCardId !== null} onOpenChange={() => setDisputeCardId(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-500" />
+              Resolve Dispute
+            </DialogTitle>
+          </DialogHeader>
+          {disputeCardId !== null && (() => {
+            const card = gameCards.find((c) => c.id === disputeCardId);
+            if (!card) return null;
+            const team1 = teams.find((t: Record<string, unknown>) => Number(t.id) === card.team1Id);
+            const team2 = teams.find((t: Record<string, unknown>) => Number(t.id) === card.team2Id);
+            return (
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Override the winner for:{" "}
+                  <span className="font-semibold text-foreground">{String(team1?.name ?? card.team1Id)}</span>
+                  {" vs "}
+                  <span className="font-semibold text-foreground">{String(team2?.name ?? card.team2Id)}</span>
+                </p>
+                <div>
+                  <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">New Winner</Label>
+                  <Select value={disputeForm.newWinnerTeamId} onValueChange={(v) => setDisputeForm((f) => ({ ...f, newWinnerTeamId: v }))}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Select the correct winner" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={String(card.team1Id)}>{String(team1?.name ?? card.team1Id)}</SelectItem>
+                      <SelectItem value={String(card.team2Id)}>{String(team2?.name ?? card.team2Id)}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Override Notes</Label>
+                  <Textarea
+                    className="mt-1"
+                    rows={3}
+                    placeholder="Why is this result being overridden?"
+                    value={disputeForm.overrideNotes}
+                    onChange={(e) => setDisputeForm((f) => ({ ...f, overrideNotes: e.target.value }))}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground bg-amber-500/5 border border-amber-500/20 rounded-lg p-3">
+                  This will reverse the life deduction from the previous loser and apply it to the new loser. Lives cannot be restored if a team is already bowed out.
+                </p>
+              </div>
+            );
+          })()}
+          <DialogFooter className="mt-2">
+            <Button variant="outline" onClick={() => setDisputeCardId(null)}>Cancel</Button>
+            <Button
+              className="gap-1 bg-amber-600 hover:bg-amber-700 text-white"
+              disabled={!disputeForm.newWinnerTeamId || resolveDispute.isPending}
+              onClick={() => disputeCardId !== null && resolveDispute.mutate({ cardId: disputeCardId, newWinnerTeamId: Number(disputeForm.newWinnerTeamId), overrideNotes: disputeForm.overrideNotes })}
+            >
+              {resolveDispute.isPending ? "Saving…" : "Override Result"}
             </Button>
           </DialogFooter>
         </DialogContent>

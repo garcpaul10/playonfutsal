@@ -306,6 +306,7 @@ import KotcMyTeamsPage from "@/pages/kotc-my-teams";
 import KotcTeamPage from "@/pages/kotc-team";
 import KotcLeaderboardPage from "@/pages/kotc-leaderboard";
 import KotcSeasonDetailPage from "@/pages/kotc-season-detail";
+import KotcBattleLivePage from "@/pages/kotc-battle-live";
 import FamilyDashboard from "@/pages/family/dashboard";
 
 function ClerkAuthTokenWirer() {
@@ -504,6 +505,7 @@ function ClerkProviderWithRoutes() {
             <Route path="/kotc/my-teams">{() => <KotcMyTeamsPage />}</Route>
             <Route path="/kotc/teams/:teamId">{() => <KotcTeamPage />}</Route>
             <Route path="/kotc/leaderboard">{() => <KotcLeaderboardPage />}</Route>
+            <Route path="/kotc/battles/:battleId/live">{() => <KotcBattleLivePage />}</Route>
             <Route path="/rentals" component={RentalsPage} />
             <Route path="/waiver/rental/:token">{(params) => <WaiverRentalPage params={params} />}</Route>
             <Route path="/ref-alerts" component={RefAlerts} />
