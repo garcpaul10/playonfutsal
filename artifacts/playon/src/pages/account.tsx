@@ -579,7 +579,21 @@ function NotificationsSection() {
       if (permission === "denied") { setPushDenied(true); toast({ title: "Notifications blocked", description: "Allow notifications in your browser settings.", variant: "destructive" }); return; }
       if (permission !== "granted") return;
 
-      const reg = await navigator.serviceWorker.ready;
+      // serviceWorker.ready can hang if the SW is stuck; fall back to getRegistration
+      const swReady = Promise.race([
+        navigator.serviceWorker.ready,
+        new Promise<ServiceWorkerRegistration>((_, reject) =>
+          setTimeout(() => reject(new Error("Service worker timed out — try refreshing the page")), 8000)
+        ),
+      ]);
+      let reg: ServiceWorkerRegistration;
+      try {
+        reg = await swReady;
+      } catch {
+        const existing = await navigator.serviceWorker.getRegistration();
+        if (!existing) throw new Error("No service worker registered — try refreshing the page");
+        reg = existing;
+      }
       const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) });
 
       const p256dhKey = sub.getKey("p256dh");
