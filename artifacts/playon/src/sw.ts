@@ -8,11 +8,15 @@ declare const self: ServiceWorkerGlobalScope;
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
 
-// Pass all cross-origin requests straight to the network before Workbox touches them
+// Pass all cross-origin requests AND non-GET requests straight to the network —
+// no caching, no interception (prevents SW from blocking API POSTs/PATCHs/DELETEs).
 self.addEventListener("fetch", (event: FetchEvent) => {
   const url = new URL(event.request.url);
-  if (url.origin !== self.location.origin) {
+  const isCrossOrigin = url.origin !== self.location.origin;
+  const isNonGet = event.request.method !== "GET";
+  if (isCrossOrigin || isNonGet) {
     event.respondWith(fetch(event.request));
+    return;
   }
 }, { capture: true });
 
