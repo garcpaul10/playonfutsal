@@ -564,28 +564,40 @@ function NotificationsSection() {
     });
   }, []);
 
+  function keyToBase64(key: ArrayBuffer): string {
+    const bytes = new Uint8Array(key);
+    let binary = "";
+    for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+    return btoa(binary);
+  }
+
   async function enablePush() {
     if (!VAPID_PUBLIC_KEY) return;
     setEnablingPush(true);
     try {
-      const reg = await navigator.serviceWorker.ready;
       const permission = await Notification.requestPermission();
-      if (permission !== "granted") {
-        setPushDenied(permission === "denied");
-        toast({ title: "Notifications blocked", description: "Allow notifications in your browser settings.", variant: "destructive" });
-        return;
-      }
+      if (permission === "denied") { setPushDenied(true); toast({ title: "Notifications blocked", description: "Allow notifications in your browser settings.", variant: "destructive" }); return; }
+      if (permission !== "granted") return;
+
+      const reg = await navigator.serviceWorker.ready;
       const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) });
+
+      const p256dhKey = sub.getKey("p256dh");
+      const authKey = sub.getKey("auth");
+      if (!p256dhKey || !authKey) throw new Error("Missing push subscription keys");
+
       const token = await getToken();
-      await fetch(`${API_BASE}/notification-preferences/push-subscription`, {
+      const res = await fetch(`${API_BASE}/notification-preferences/push-subscription`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ endpoint: sub.endpoint, p256dh: btoa(String.fromCharCode(...new Uint8Array(sub.getKey("p256dh")!))), auth: btoa(String.fromCharCode(...new Uint8Array(sub.getKey("auth")!))) }),
+        body: JSON.stringify({ endpoint: sub.endpoint, p256dh: keyToBase64(p256dhKey), auth: keyToBase64(authKey) }),
       });
+      if (!res.ok) throw new Error(`Server error ${res.status}`);
       setPushSubscribed(true);
       toast({ title: "Push notifications enabled!" });
     } catch (e: any) {
-      toast({ title: "Could not enable push", description: e.message, variant: "destructive" });
+      console.error("[push] enablePush error:", e);
+      toast({ title: "Could not enable push", description: e?.message ?? "Unknown error", variant: "destructive" });
     } finally {
       setEnablingPush(false);
     }
