@@ -12,7 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import {
   MessageSquare, Users, Send, Loader2, Sparkles, ChevronDown,
-  Mail, Bell, RefreshCw, Clock, X, CheckSquare, Square,
+  Mail, Bell, RefreshCw, Clock, X, CheckSquare, Square, Smartphone, Image as ImageIcon,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -40,6 +40,7 @@ interface HistoryRow {
   createdAt: string;
   subject: string;
   body: string;
+  imageUrl: string | null;
   channels: string[];
   offeringType: string | null;
   eventId: number | null;
@@ -86,6 +87,7 @@ export default function AdminMessaging() {
   // Compose
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
   const [channels, setChannels] = useState<string[]>(["in_app"]);
   const [sending, setSending] = useState(false);
   const [drafting, setDrafting] = useState(false);
@@ -237,6 +239,10 @@ export default function AdminMessaging() {
       toast({ title: "No recipients selected", variant: "destructive" });
       return;
     }
+    if (imageUrl.trim() && !/^https:\/\//.test(imageUrl.trim())) {
+      toast({ title: "Image URL must start with https://", variant: "destructive" });
+      return;
+    }
 
     setSending(true);
     try {
@@ -247,6 +253,7 @@ export default function AdminMessaging() {
         body: JSON.stringify({
           subject: subject.trim(),
           body: body.trim(),
+          imageUrl: imageUrl.trim() || undefined,
           channels,
           offeringType: offeringType !== "all" ? offeringType : undefined,
           eventId: eventId ? parseInt(eventId) : undefined,
@@ -269,6 +276,7 @@ export default function AdminMessaging() {
       // Reset compose
       setSubject("");
       setBody("");
+      setImageUrl("");
       setChannels(["in_app"]);
       setRecipients([]);
       setExcludedIds(new Set());
@@ -346,9 +354,14 @@ export default function AdminMessaging() {
                         </Badge>
                         {h.channels.map((c) => (
                           <Badge key={c} variant="outline" className="text-[10px]">
-                            {c === "in_app" ? "In-app" : "Email"}
+                            {c === "in_app" ? "In-app" : c === "email" ? "Email" : "Push"}
                           </Badge>
                         ))}
+                        {h.imageUrl && (
+                          <Badge variant="outline" className="text-[10px] gap-1">
+                            <ImageIcon className="h-2.5 w-2.5" />Image
+                          </Badge>
+                        )}
                         {h.offeringType && (
                           <Badge variant="outline" className="text-[10px] text-muted-foreground">
                             {OFFERING_LABELS[h.offeringType] ?? h.offeringType}
@@ -577,6 +590,30 @@ export default function AdminMessaging() {
                     )}
                   </div>
 
+                  {/* Image URL (used by push notifications) */}
+                  <div>
+                    <Label htmlFor="msg-image" className="text-xs text-muted-foreground mb-1.5 block">
+                      Image URL <span className="text-muted-foreground/50">(optional — shown in push notifications)</span>
+                    </Label>
+                    <div className="flex items-center gap-2">
+                      <ImageIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <Input
+                        id="msg-image"
+                        placeholder="https://example.com/promo.jpg"
+                        value={imageUrl}
+                        onChange={(e) => setImageUrl(e.target.value)}
+                      />
+                    </div>
+                    {imageUrl.trim() && /^https:\/\//.test(imageUrl.trim()) && (
+                      <img
+                        src={imageUrl.trim()}
+                        alt="Preview"
+                        className="mt-2 rounded-lg border border-border max-h-32 object-cover"
+                        onError={(e) => { e.currentTarget.style.display = "none"; }}
+                      />
+                    )}
+                  </div>
+
                   {/* Channel selector */}
                   <div>
                     <Label className="text-xs text-muted-foreground mb-2 block">Delivery channels</Label>
@@ -584,6 +621,7 @@ export default function AdminMessaging() {
                       {[
                         { id: "in_app", label: "In-app", icon: Bell },
                         { id: "email", label: "Email", icon: Mail },
+                        { id: "push", label: "Push", icon: Smartphone },
                       ].map(({ id, label, icon: Icon }) => {
                         const active = channels.includes(id);
                         return (
@@ -611,7 +649,7 @@ export default function AdminMessaging() {
                         <span className="font-semibold text-foreground">{activeRecipients.length}</span> recipient{activeRecipients.length !== 1 ? "s" : ""}
                         {" "}will receive this via{" "}
                         <span className="font-semibold text-foreground">
-                          {channels.map((c) => c === "in_app" ? "in-app notification" : "email").join(" + ")}
+                          {channels.map((c) => c === "in_app" ? "in-app notification" : c === "email" ? "email" : "push notification").join(" + ")}
                         </span>.
                       </p>
                     </div>

@@ -43,7 +43,7 @@ export interface PushSubscriptionData {
  */
 export async function sendWebPush(
   subscription: PushSubscriptionData,
-  payload: { title: string; body: string; url?: string; tag?: string },
+  payload: { title: string; body: string; url?: string; tag?: string; imageUrl?: string },
 ): Promise<WebPushResult> {
   if (!webPushConfigured) {
     console.warn("[webPush] VAPID keys not configured — skipping push");

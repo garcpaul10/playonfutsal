@@ -311,6 +311,7 @@ router.get("/messaging/history", requireMessagingPermission, async (_req: Reques
         createdAt: broadcastMessagesTable.createdAt,
         subject: broadcastMessagesTable.subject,
         body: broadcastMessagesTable.body,
+        imageUrl: broadcastMessagesTable.imageUrl,
         channels: broadcastMessagesTable.channels,
         offeringType: broadcastMessagesTable.offeringType,
         eventId: broadcastMessagesTable.eventId,
@@ -342,6 +343,7 @@ router.post("/messaging/send", requireMessagingPermission, async (req: Request, 
     subject,
     body,
     channels,
+    imageUrl,
     offeringType,
     eventId,
     eventType,
@@ -352,6 +354,7 @@ router.post("/messaging/send", requireMessagingPermission, async (req: Request, 
     subject: string;
     body: string;
     channels: string[];
+    imageUrl?: string;
     offeringType?: string;
     eventId?: number;
     eventType?: string;
@@ -376,13 +379,19 @@ router.post("/messaging/send", requireMessagingPermission, async (req: Request, 
     return;
   }
 
-  const validChannels = ["in_app", "email"] as const;
+  const validChannels = ["in_app", "email", "push"] as const;
   const sanitizedChannels = channels.filter((c): c is NotificationChannel =>
     (validChannels as readonly string[]).includes(c),
   );
 
   if (sanitizedChannels.length === 0) {
-    res.status(400).json({ error: "Invalid channels — must be in_app or email" });
+    res.status(400).json({ error: "Invalid channels — must be in_app, email, or push" });
+    return;
+  }
+
+  const trimmedImageUrl = imageUrl?.trim();
+  if (trimmedImageUrl && !/^https:\/\//.test(trimmedImageUrl)) {
+    res.status(400).json({ error: "imageUrl must be an https:// URL" });
     return;
   }
 
@@ -408,6 +417,7 @@ router.post("/messaging/send", requireMessagingPermission, async (req: Request, 
         type: "announcement",
         subject: subject.trim(),
         body: body.trim(),
+        imageUrl: trimmedImageUrl || undefined,
       }),
     );
 
@@ -420,6 +430,7 @@ router.post("/messaging/send", requireMessagingPermission, async (req: Request, 
       createdBy: authed.dbUser!.id,
       subject: subject.trim(),
       body: body.trim(),
+      imageUrl: trimmedImageUrl || null,
       channels: sanitizedChannels,
       offeringType: offeringType ?? null,
       eventId: eventId ?? null,

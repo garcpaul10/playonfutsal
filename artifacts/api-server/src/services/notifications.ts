@@ -67,6 +67,7 @@ export interface NotificationPayload {
   subject?: string;
   body: string;
   link?: string;
+  imageUrl?: string;
   metadata?: Record<string, unknown>;
   emailTemplate?: EmailTemplatePayload;
 }
@@ -269,6 +270,7 @@ async function dispatchPush(payload: NotificationPayload, notificationId: number
     body: payload.body,
     tag: payload.type,
     url: APP_URL,
+    imageUrl: payload.imageUrl,
   };
 
   let anySent = false;

@@ -63,7 +63,7 @@ registerRoute(
 );
 
 self.addEventListener("push", (event) => {
-  let data: { title?: string; body?: string; tag?: string; url?: string } = {
+  let data: { title?: string; body?: string; tag?: string; url?: string; imageUrl?: string } = {
     title: "PlayOn",
     body: "You have a new notification.",
   };
@@ -80,7 +80,8 @@ self.addEventListener("push", (event) => {
       badge: "/favicon.png",
       tag: data.tag ?? "playon-notification",
       data: { url: data.url ?? "/" },
-    })
+      ...(data.imageUrl ? { image: data.imageUrl } : {}),
+    } as NotificationOptions)
     .then(async () => {
       // Try Badge API from SW context (works on some platforms)
       if ("setAppBadge" in self.navigator) {

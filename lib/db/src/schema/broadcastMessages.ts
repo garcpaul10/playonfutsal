@@ -9,6 +9,7 @@ export const broadcastMessagesTable = pgTable("broadcast_messages", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   subject: text("subject").notNull(),
   body: text("body").notNull(),
+  imageUrl: text("image_url"),
   channels: text("channels").array().notNull().default([]),
   offeringType: text("offering_type"),
   eventId: integer("event_id"),
