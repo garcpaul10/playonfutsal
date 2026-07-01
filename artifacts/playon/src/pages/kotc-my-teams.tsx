@@ -11,7 +11,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Crown, Plus, Users, ChevronRight, Trophy, Heart, Swords } from "lucide-react";
+import { Crown, Plus, Users, ChevronRight, Trophy, Heart, Swords, Mail, Check, X } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
 
 const API = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
@@ -70,6 +71,37 @@ export default function KotcMyTeamsPage() {
       if (!res.ok) return [];
       return res.json() as Promise<Array<Record<string, unknown>>>;
     },
+  });
+
+  const { data: myInvites = [] } = useQuery({
+    queryKey: ["kotc-my-invites"],
+    queryFn: async () => {
+      const token = await getToken();
+      const res = await authFetch(token, `${API}/kotc/my-invites`);
+      if (!res.ok) return [];
+      return res.json() as Promise<Array<{
+        id: number; teamId: number; teamName: string | null; teamColor: string | null;
+        seasonId: number; seasonName: string | null; captainName: string | null; invitedAt: string;
+      }>>;
+    },
+  });
+
+  const respondInvite = useMutation({
+    mutationFn: async ({ id, action }: { id: number; action: "accept" | "decline" }) => {
+      const token = await getToken();
+      const res = await authFetch(token, `${API}/kotc/team-invites/${id}/${action}`, { method: "POST" });
+      if (!res.ok) throw new Error("Failed to respond to invite");
+      return res.json();
+    },
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: ["kotc-my-invites"] });
+      qc.invalidateQueries({ queryKey: ["kotc-my-teams"] });
+      toast({
+        title: variables.action === "accept" ? "Invite accepted!" : "Invite declined",
+        description: variables.action === "accept" ? "You're on the team." : undefined,
+      });
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
   const createTeam = useMutation({
@@ -143,6 +175,55 @@ export default function KotcMyTeamsPage() {
               Active season: <span className="font-bold">{String(activeSeason.name)}</span>
               <span className="text-amber-400/70 ml-2">· {String(activeSeason.sport).toUpperCase()}</span>
             </p>
+          </div>
+        )}
+
+        {myInvites.length > 0 && (
+          <div className="space-y-2">
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+              <Mail className="h-3.5 w-3.5" />
+              Pending Invites ({myInvites.length})
+            </h2>
+            {myInvites.map((inv) => (
+              <div
+                key={inv.id}
+                className="rounded-xl border border-blue-500/30 bg-blue-500/5 p-3.5 flex items-center gap-3"
+              >
+                <div
+                  className="w-9 h-9 rounded-full border-2 flex-shrink-0"
+                  style={{ backgroundColor: (inv.teamColor ?? "#888") + "40", borderColor: (inv.teamColor ?? "#888") + "80" }}
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm text-foreground truncate">{inv.teamName ?? "Team"}</p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {inv.captainName ? `Invited by ${inv.captainName}` : "Invited"}
+                    {inv.seasonName ? ` · ${inv.seasonName}` : ""}
+                    {" · "}
+                    {formatDistanceToNow(new Date(inv.invitedAt), { addSuffix: true })}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 px-2.5 text-red-500 border-red-500/30 hover:bg-red-500/10"
+                    disabled={respondInvite.isPending}
+                    onClick={() => respondInvite.mutate({ id: inv.id, action: "decline" })}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="h-8 px-3 gap-1 bg-green-600 hover:bg-green-700 text-white"
+                    disabled={respondInvite.isPending}
+                    onClick={() => respondInvite.mutate({ id: inv.id, action: "accept" })}
+                  >
+                    <Check className="h-3.5 w-3.5" />
+                    Accept
+                  </Button>
+                </div>
+              </div>
+            ))}
           </div>
         )}
 

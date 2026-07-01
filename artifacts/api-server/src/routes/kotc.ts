@@ -585,7 +585,7 @@ router.get("/kotc/teams/:id", requireAuth, async (req, res) => {
 
     // Omit qrCode from response unless requester is captain or admin
     const { qrCode, ...teamWithoutQr } = team;
-    res.json({ ...(isCaptainOrAdmin ? team : teamWithoutQr), players });
+    res.json({ ...(isCaptainOrAdmin ? team : teamWithoutQr), players, isCaptainOrAdmin, myUserId: user.id });
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch team" });
   }
@@ -757,6 +757,36 @@ router.post("/kotc/teams/:id/invite", requireAuth, async (req, res) => {
   }
 });
 
+// Captain/admin cancels a pending invite or removes an active player from the roster
+router.delete("/kotc/teams/:teamId/players/:playerId", requireAuth, async (req, res) => {
+  try {
+    const teamId = Number(req.params.teamId);
+    const playerId = Number(req.params.playerId);
+    const { userId: clerkId } = getAuth(req);
+    const user = await getDbUser(clerkId!);
+    if (!user) return void res.status(401).json({ error: "Unauthorized" });
+
+    const [team] = await db.select().from(kotcTeamsTable).where(eq(kotcTeamsTable.id, teamId));
+    if (!team) return void res.status(404).json({ error: "Team not found" });
+    if (team.captainUserId !== user.id && user.role !== "admin") {
+      return void res.status(403).json({ error: "Only the captain can manage the roster" });
+    }
+
+    const [player] = await db
+      .select()
+      .from(kotcTeamPlayersTable)
+      .where(and(eq(kotcTeamPlayersTable.id, playerId), eq(kotcTeamPlayersTable.teamId, teamId)));
+    if (!player) return void res.status(404).json({ error: "Player not found on this team" });
+    if (player.role === "captain") return void res.status(400).json({ error: "Cannot remove the team captain" });
+
+    await db.delete(kotcTeamPlayersTable).where(eq(kotcTeamPlayersTable.id, playerId));
+
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to remove player" });
+  }
+});
+
 router.post("/kotc/team-invites/:id/accept", requireAuth, async (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -799,6 +829,53 @@ router.post("/kotc/team-invites/:id/decline", requireAuth, async (req, res) => {
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: "Failed to decline invite" });
+  }
+});
+
+// ─── My Invites ───────────────────────────────────────────────────────────────
+
+router.get("/kotc/my-invites", requireAuth, async (req, res) => {
+  try {
+    const { userId: clerkId } = getAuth(req);
+    const user = await getDbUser(clerkId!);
+    if (!user) return void res.status(401).json({ error: "Unauthorized" });
+
+    const invites = await db
+      .select({
+        id: kotcTeamPlayersTable.id,
+        teamId: kotcTeamPlayersTable.teamId,
+        invitedAt: kotcTeamPlayersTable.invitedAt,
+        teamName: kotcTeamsTable.name,
+        teamColor: kotcTeamsTable.color,
+        seasonId: kotcTeamsTable.seasonId,
+        captainUserId: kotcTeamsTable.captainUserId,
+      })
+      .from(kotcTeamPlayersTable)
+      .leftJoin(kotcTeamsTable, eq(kotcTeamsTable.id, kotcTeamPlayersTable.teamId))
+      .where(and(eq(kotcTeamPlayersTable.userId, user.id), eq(kotcTeamPlayersTable.status, "invited")))
+      .orderBy(desc(kotcTeamPlayersTable.invitedAt));
+
+    if (invites.length === 0) return void res.json([]);
+
+    const seasonIds = [...new Set(invites.map((i) => i.seasonId).filter((v): v is number => v != null))];
+    const seasons = seasonIds.length > 0
+      ? await db.select().from(kotcSeasonsTable).where(inArray(kotcSeasonsTable.id, seasonIds))
+      : [];
+    const captainIds = [...new Set(invites.map((i) => i.captainUserId).filter((v): v is number => v != null))];
+    const captains = captainIds.length > 0
+      ? await db.select().from(usersTable).where(inArray(usersTable.id, captainIds))
+      : [];
+
+    res.json(invites.map((inv) => ({
+      ...inv,
+      seasonName: seasons.find((s) => s.id === inv.seasonId)?.name ?? null,
+      captainName: (() => {
+        const c = captains.find((u) => u.id === inv.captainUserId);
+        return c ? `${c.firstName ?? ""} ${c.lastName ?? ""}`.trim() : null;
+      })(),
+    })));
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch invites" });
   }
 });
 
@@ -3615,6 +3692,114 @@ router.get("/kotc/battles/:battleId/live-state", requireAuth, async (req, res) =
     res.json({ battle, queues, activeCards });
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch live state" });
+  }
+});
+
+// ─── Season Recap (shareable stats card) ──────────────────────────────────────
+
+router.get("/kotc/teams/:teamId/season-recap", requireAuth, async (req, res) => {
+  try {
+    const teamId = Number(req.params.teamId);
+    const [team] = await db.select().from(kotcTeamsTable).where(eq(kotcTeamsTable.id, teamId));
+    if (!team) return void res.status(404).json({ error: "Team not found" });
+
+    const [season] = await db.select().from(kotcSeasonsTable).where(eq(kotcSeasonsTable.id, team.seasonId));
+
+    const battles = await db
+      .select({ id: kotcBattlesTable.id })
+      .from(kotcBattlesTable)
+      .where(eq(kotcBattlesTable.seasonId, team.seasonId));
+    const battleIds = battles.map((b) => b.id);
+
+    const gameCards = battleIds.length > 0
+      ? await db
+          .select()
+          .from(kotcGameCardsTable)
+          .where(and(
+            inArray(kotcGameCardsTable.battleId, battleIds),
+            eq(kotcGameCardsTable.status, "completed"),
+            or(eq(kotcGameCardsTable.team1Id, teamId), eq(kotcGameCardsTable.team2Id, teamId)),
+          ))
+          .orderBy(asc(kotcGameCardsTable.completedAt))
+      : [];
+
+    const wins = gameCards.filter((c) => c.winnerTeamId === teamId).length;
+    const losses = gameCards.filter((c) => c.loserTeamId === teamId).length;
+    const totalGames = gameCards.length;
+    const winRate = totalGames > 0 ? Math.round((wins / totalGames) * 100) : 0;
+
+    let bestStreak = 0;
+    let currentStreak = 0;
+    for (const card of gameCards) {
+      if (card.winnerTeamId === teamId) {
+        currentStreak += 1;
+        bestStreak = Math.max(bestStreak, currentStreak);
+      } else {
+        currentStreak = 0;
+      }
+    }
+
+    const registrations = battleIds.length > 0
+      ? await db
+          .select()
+          .from(kotcBattleRegistrationsTable)
+          .where(and(
+            eq(kotcBattleRegistrationsTable.teamId, teamId),
+            inArray(kotcBattleRegistrationsTable.battleId, battleIds),
+          ))
+      : [];
+    const battlesAttended = new Set(registrations.map((r) => r.battleId)).size;
+
+    const ledger = await db
+      .select()
+      .from(kotcLifeLedgerTable)
+      .where(eq(kotcLifeLedgerTable.teamId, teamId));
+    const livesEarned = ledger
+      .filter((l) => l.delta > 0 && l.reason !== "life_purchase" && l.reason !== "battle_cancellation_carry_forward")
+      .reduce((sum, l) => sum + l.delta, 0);
+    const livesLost = ledger.filter((l) => l.delta < 0).reduce((sum, l) => sum + Math.abs(l.delta), 0);
+
+    // Rank among all teams in the season by wins (same tiebreak order as leaderboard: wins, then win rate)
+    const allSeasonTeams = await db.select().from(kotcTeamsTable).where(eq(kotcTeamsTable.seasonId, team.seasonId));
+    const allTeamStats = await Promise.all(
+      allSeasonTeams.map(async (t) => {
+        const cards = battleIds.length > 0
+          ? await db
+              .select()
+              .from(kotcGameCardsTable)
+              .where(and(
+                inArray(kotcGameCardsTable.battleId, battleIds),
+                eq(kotcGameCardsTable.status, "completed"),
+                or(eq(kotcGameCardsTable.team1Id, t.id), eq(kotcGameCardsTable.team2Id, t.id)),
+              ))
+          : [];
+        const w = cards.filter((c) => c.winnerTeamId === t.id).length;
+        return { teamId: t.id, wins: w, total: cards.length };
+      })
+    );
+    allTeamStats.sort((a, b) => b.wins - a.wins || (b.wins / (b.total || 1)) - (a.wins / (a.total || 1)));
+    const rank = allTeamStats.findIndex((s) => s.teamId === teamId) + 1;
+
+    res.json({
+      teamName: team.name,
+      teamColor: team.color,
+      seasonName: season?.name ?? null,
+      isReigning: team.isReigning,
+      wins,
+      losses,
+      totalGames,
+      winRate,
+      bestStreak,
+      battlesAttended,
+      livesEarned,
+      livesLost,
+      livesBalance: team.livesBalance,
+      rank: rank || null,
+      totalTeams: allSeasonTeams.length,
+    });
+  } catch (err) {
+    console.error("[kotc] season-recap:", err);
+    res.status(500).json({ error: "Failed to build season recap" });
   }
 });
 

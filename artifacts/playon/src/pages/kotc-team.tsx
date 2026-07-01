@@ -18,7 +18,7 @@ import {
   Crown, Heart, Users, QrCode, Calendar, ChevronRight,
   CheckCircle2, Clock, Plus, UserPlus, Trophy, Swords, Flame,
   AlertTriangle, SkipForward, Minus, ShoppingBag, LogOut,
-  ListOrdered, Loader2,
+  ListOrdered, Loader2, X, Share2,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -111,9 +111,10 @@ export default function KotcTeamPage() {
   const [showInvite, setShowInvite] = useState(false);
   const [showQR, setShowQR] = useState(false);
   const [showRegister, setShowRegister] = useState(false);
-  const [inviteUserId, setInviteUserId] = useState("");
+  const [inviteEmail, setInviteEmail] = useState("");
   const [selectedBattleId, setSelectedBattleId] = useState<number | null>(null);
   const [showDissolveDlg, setShowDissolveDlg] = useState(false);
+  const [showRecap, setShowRecap] = useState(false);
 
   const { data: team, isLoading: teamLoading } = useQuery({
     queryKey: ["kotc-team", teamId],
@@ -156,6 +157,23 @@ export default function KotcTeamPage() {
       const res = await authFetch(token, `${API}/kotc/teams/${teamId}/registrations`);
       if (!res.ok) return [];
       return res.json() as Promise<Array<{ id: number; battleId: number; courtNumber: number; actingCaptainUserId: number | null }>>;
+    },
+  });
+
+  const { data: recap } = useQuery({
+    queryKey: ["kotc-season-recap", teamId],
+    enabled: !!teamId && showRecap,
+    queryFn: async () => {
+      const token = await getToken();
+      const res = await authFetch(token, `${API}/kotc/teams/${teamId}/season-recap`);
+      if (!res.ok) throw new Error("Failed to load recap");
+      return res.json() as Promise<{
+        teamName: string; teamColor: string | null; seasonName: string | null;
+        isReigning: boolean; wins: number; losses: number; totalGames: number;
+        winRate: number; bestStreak: number; battlesAttended: number;
+        livesEarned: number; livesLost: number; livesBalance: number;
+        rank: number | null; totalTeams: number;
+      }>;
     },
   });
 
@@ -250,7 +268,7 @@ export default function KotcTeamPage() {
       const token = await getToken();
       const res = await authFetch(token, `${API}/kotc/teams/${teamId}/invite`, {
         method: "POST",
-        body: JSON.stringify({ inviteeUserId: Number(inviteUserId) }),
+        body: JSON.stringify({ inviteeEmail: inviteEmail.trim().toLowerCase() }),
       });
       if (!res.ok) {
         const err = await res.json();
@@ -260,9 +278,26 @@ export default function KotcTeamPage() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["kotc-team", teamId] });
-      toast({ title: "Player invited!" });
+      toast({ title: "Player invited!", description: "They'll see the invite next time they open the app." });
       setShowInvite(false);
-      setInviteUserId("");
+      setInviteEmail("");
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const removePlayer = useMutation({
+    mutationFn: async (playerId: number) => {
+      const token = await getToken();
+      const res = await authFetch(token, `${API}/kotc/teams/${teamId}/players/${playerId}`, { method: "DELETE" });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to remove player");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["kotc-team", teamId] });
+      toast({ title: "Player removed from team" });
     },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
@@ -485,6 +520,15 @@ export default function KotcTeamPage() {
                 </div>
               </div>
             </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5 text-xs flex-shrink-0"
+              onClick={() => setShowRecap(true)}
+            >
+              <Trophy className="h-3.5 w-3.5" />
+              Season Recap
+            </Button>
           </div>
 
           {team.livesBalance <= 2 && (
@@ -546,9 +590,28 @@ export default function KotcTeamPage() {
                       )}
                     </div>
                   </div>
-                  <span className={`text-[11px] px-2 py-0.5 rounded font-medium ${String(p.status) === "active" ? "bg-green-500/10 text-green-400" : "bg-muted text-muted-foreground"}`}>
-                    {String(p.status)}
+                  <span className={`text-[11px] px-2 py-0.5 rounded font-medium ${
+                    String(p.status) === "active" ? "bg-green-500/10 text-green-400" :
+                    String(p.status) === "invited" ? "bg-blue-500/10 text-blue-400" :
+                    "bg-muted text-muted-foreground"
+                  }`}>
+                    {String(p.status) === "invited" ? "Invite pending" : String(p.status)}
                   </span>
+                  {team.isCaptainOrAdmin && String(p.role) !== "captain" && (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7 text-muted-foreground hover:text-red-500 flex-shrink-0"
+                      disabled={removePlayer.isPending}
+                      onClick={() => {
+                        const label = String(p.status) === "invited" ? "cancel this invite" : "remove this player from the team";
+                        if (confirm(`Are you sure you want to ${label}?`)) removePlayer.mutate(Number(p.id));
+                      }}
+                      title={String(p.status) === "invited" ? "Cancel invite" : "Remove player"}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
                 </div>
               ))}
             </div>
@@ -854,19 +917,22 @@ export default function KotcTeamPage() {
           </DialogHeader>
           <div className="space-y-3">
             <div>
-              <Label>Player User ID</Label>
+              <Label>Player Email</Label>
               <Input
-                value={inviteUserId}
-                onChange={(e) => setInviteUserId(e.target.value)}
-                placeholder="Enter user ID"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                placeholder="player@example.com"
                 className="mt-1"
-                type="number"
+                type="email"
               />
+              <p className="text-xs text-muted-foreground mt-1.5">
+                They must already have a PlayOn account. They'll see the invite next time they open their teams page.
+              </p>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowInvite(false)}>Cancel</Button>
-            <Button onClick={() => invitePlayer.mutate()} disabled={!inviteUserId || invitePlayer.isPending}>
+            <Button onClick={() => invitePlayer.mutate()} disabled={!inviteEmail.trim() || invitePlayer.isPending}>
               {invitePlayer.isPending ? "Inviting..." : "Send Invite"}
             </Button>
           </DialogFooter>
@@ -950,6 +1016,96 @@ export default function KotcTeamPage() {
               {setActingCaptain.isPending ? "Saving..." : "Confirm"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showRecap} onOpenChange={setShowRecap}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Trophy className="h-5 w-5 text-amber-400" />Season Recap
+            </DialogTitle>
+          </DialogHeader>
+          {!recap ? (
+            <div className="space-y-3 py-4">
+              <div className="h-40 rounded-2xl bg-muted animate-pulse" />
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div
+                className="rounded-2xl p-5 text-white relative overflow-hidden"
+                style={{
+                  background: `linear-gradient(135deg, ${recap.teamColor || "#f59e0b"}dd, #18181bcc)`,
+                }}
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <Crown className="h-5 w-5 text-amber-300" />
+                  <span className="text-xs font-bold uppercase tracking-widest opacity-80">
+                    {recap.seasonName ?? "Kings of the Court"}
+                  </span>
+                </div>
+                <h2 className="text-2xl font-black mb-1">{recap.teamName}</h2>
+                {recap.isReigning && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded bg-amber-400/90 text-black mb-3">
+                    <Crown className="h-2.5 w-2.5" />REIGNING KING
+                  </span>
+                )}
+                <div className="grid grid-cols-2 gap-3 mt-3">
+                  <div className="bg-white/10 rounded-xl p-3">
+                    <p className="text-2xl font-black leading-none">{recap.wins}-{recap.losses}</p>
+                    <p className="text-[11px] opacity-70 mt-1">Record</p>
+                  </div>
+                  <div className="bg-white/10 rounded-xl p-3">
+                    <p className="text-2xl font-black leading-none">{recap.winRate}%</p>
+                    <p className="text-[11px] opacity-70 mt-1">Win Rate</p>
+                  </div>
+                  <div className="bg-white/10 rounded-xl p-3">
+                    <p className="text-2xl font-black leading-none flex items-center gap-1">
+                      <Flame className="h-4 w-4 text-orange-400" />{recap.bestStreak}
+                    </p>
+                    <p className="text-[11px] opacity-70 mt-1">Best Streak</p>
+                  </div>
+                  <div className="bg-white/10 rounded-xl p-3">
+                    <p className="text-2xl font-black leading-none">
+                      {recap.rank ? `#${recap.rank}` : "—"}
+                      {recap.totalTeams ? <span className="text-xs opacity-60">/{recap.totalTeams}</span> : null}
+                    </p>
+                    <p className="text-[11px] opacity-70 mt-1">Season Rank</p>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/15 text-xs opacity-80">
+                  <span>{recap.battlesAttended} battles attended</span>
+                  <span className="flex items-center gap-1">
+                    <Heart className="h-3 w-3 text-red-300" />+{recap.livesEarned} earned
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  className="flex-1 gap-1.5"
+                  onClick={async () => {
+                    const text = `${recap.teamName} — ${recap.wins}-${recap.losses} in ${recap.seasonName ?? "Kings of the Court"}! ${recap.winRate}% win rate, best streak of ${recap.bestStreak}. 👑`;
+                    if (navigator.share) {
+                      try {
+                        await navigator.share({ title: "Kings of the Court Recap", text });
+                      } catch {
+                        // user cancelled share sheet — no action needed
+                      }
+                    } else {
+                      await navigator.clipboard.writeText(text);
+                      toast({ title: "Copied to clipboard!" });
+                    }
+                  }}
+                >
+                  <Share2 className="h-4 w-4" />
+                  Share
+                </Button>
+                <Button variant="outline" onClick={() => setShowRecap(false)}>Close</Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </Layout>
