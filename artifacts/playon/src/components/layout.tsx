@@ -94,7 +94,7 @@ function NotificationsBell() {
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80 p-0" align="end">
+      <PopoverContent className="w-96 max-w-[calc(100vw-1rem)] p-0" align="end">
         {/* Header row */}
         <div className="flex items-center justify-between border-b px-4 py-3">
           <h4 className="text-sm font-semibold">Notifications</h4>
@@ -109,7 +109,7 @@ function NotificationsBell() {
         </div>
 
         {/* Notification list */}
-        <ScrollArea className="max-h-80">
+        <ScrollArea className="max-h-[70vh]">
           {items.length === 0 ? (
             <div className="flex flex-col items-center justify-center px-4 py-10 text-center">
               <Bell className="mb-2 h-8 w-8 text-muted-foreground/30" />
@@ -122,7 +122,7 @@ function NotificationsBell() {
             items.map((item) => (
               <button
                 key={item.id}
-                className={`flex w-full items-start gap-3 border-b px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-muted/50 ${item.readAt ? "opacity-60" : ""}`}
+                className={`flex w-full items-start gap-3 border-b px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-muted/50 ${item.readAt ? "opacity-60" : ""} ${item.link ? "cursor-pointer" : "cursor-default"}`}
                 onClick={() => handleItemClick(item)}
               >
                 {/* Per-type icon with unread dot overlay */}
@@ -134,19 +134,32 @@ function NotificationsBell() {
                 </div>
                 <div className="min-w-0 flex-1">
                   {item.subject && (
-                    <p className="truncate text-sm font-medium">{item.subject}</p>
+                    <p className="text-sm font-medium line-clamp-2">{item.subject}</p>
                   )}
-                  <p className={`truncate text-sm ${item.subject ? "text-muted-foreground" : "font-medium"}`}>
+                  <p className={`text-sm line-clamp-2 ${item.subject ? "text-muted-foreground" : "font-medium"}`}>
                     {item.body}
                   </p>
-                  <p className="mt-0.5 text-xs text-muted-foreground/60">
-                    {formatRelativeTime(item.createdAt)}
-                  </p>
+                  <div className="mt-0.5 flex items-center gap-1.5">
+                    <p className="text-xs text-muted-foreground/60">{formatRelativeTime(item.createdAt)}</p>
+                    {item.link && <span className="text-xs text-primary">→ View</span>}
+                  </div>
                 </div>
               </button>
             ))
           )}
         </ScrollArea>
+
+        {/* Footer */}
+        {items.length > 0 && (
+          <div className="border-t px-4 py-2.5">
+            <button
+              className="text-xs text-primary hover:underline w-full text-center"
+              onClick={() => { setOpen(false); navigate("/account?tab=notifications"); }}
+            >
+              Notification settings
+            </button>
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   );
