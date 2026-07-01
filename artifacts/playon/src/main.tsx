@@ -16,6 +16,14 @@ if ("serviceWorker" in navigator) {
     });
   });
 
+  // When the SW broadcasts a push-notification, set the badge from the page
+  // context — more reliable on iOS than calling it from the service worker
+  navigator.serviceWorker.addEventListener("message", (event) => {
+    if (event.data?.type === "push-notification" && "setAppBadge" in navigator) {
+      (navigator as any).setAppBadge(1).catch(() => {});
+    }
+  });
+
   window.addEventListener("focus", () => {
     if ("clearAppBadge" in navigator) {
       (navigator as any).clearAppBadge().catch(() => {});

@@ -82,11 +82,12 @@ self.addEventListener("push", (event) => {
       data: { url: data.url ?? "/" },
     })
     .then(async () => {
-      // Badge API lives on navigator, not on the registration
+      // Try Badge API from SW context (works on some platforms)
       if ("setAppBadge" in self.navigator) {
-        await (self.navigator as any).setAppBadge(1);
+        await (self.navigator as any).setAppBadge(1).catch(() => {});
       }
-      // Broadcast to all open page clients so the bell badge updates immediately
+      // Broadcast to all open page clients — they will also call setAppBadge
+      // which is more reliably supported on iOS from the page context
       const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
       for (const client of clients) {
         client.postMessage({ type: "push-notification" });
