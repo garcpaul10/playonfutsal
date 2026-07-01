@@ -20,6 +20,18 @@ import {
 
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined;
 
+function isIosSafari(): boolean {
+  const ua = navigator.userAgent;
+  return /iP(hone|od|ad)/.test(ua) && /WebKit/.test(ua) && !/CriOS|FxiOS|OPiOS/.test(ua);
+}
+
+function isInStandaloneMode(): boolean {
+  return (
+    ("standalone" in window.navigator && (window.navigator as any).standalone === true) ||
+    window.matchMedia("(display-mode: standalone)").matches
+  );
+}
+
 interface NotifPref {
   notificationType: string;
   label: string;
@@ -103,6 +115,9 @@ export default function NotificationPreferences() {
   const [pushPermission, setPushPermission] = useState<PushPermission>("unsupported");
   const [pushSubscribed, setPushSubscribed] = useState(false);
   const [enablingPush, setEnablingPush] = useState(false);
+
+  // Detect if iOS user needs to add to home screen first
+  const iosNeedsHomeScreen = isIosSafari() && !isInStandaloneMode();
 
   // Detect push support and current permission on mount
   useEffect(() => {
@@ -330,6 +345,22 @@ export default function NotificationPreferences() {
             cancellations, and payment receipts — so you never miss something important.
           </span>
         </div>
+
+        {/* iOS add-to-home-screen hint */}
+        {iosNeedsHomeScreen && (
+          <div className="mb-5 p-4 rounded-lg border border-amber-200 bg-amber-50 flex gap-3 items-start text-sm">
+            <span className="text-xl leading-none shrink-0">📱</span>
+            <div>
+              <p className="font-semibold text-amber-900">Add to Home Screen to enable push notifications</p>
+              <p className="text-amber-800/80 text-xs mt-1 leading-relaxed">
+                On iPhone and iPad, push notifications only work when PlayOn is installed as an app.
+                Tap the <strong>Share</strong> button in Safari, then choose{" "}
+                <strong>"Add to Home Screen"</strong>. Once installed, open the app from your home
+                screen and come back here to enable push.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Web push enable prompt */}
         {showPushEnableRow && (
