@@ -76,6 +76,8 @@ export default function AdminKingsOfTheCourt() {
   const [disputeForm, setDisputeForm] = useState({ newWinnerTeamId: "", overrideNotes: "" });
 
   const [creditForm, setCreditForm] = useState({ amount: 3, reason: "" });
+  const [deleteSeasonId, setDeleteSeasonId] = useState<number | null>(null);
+  const [deleteConflict, setDeleteConflict] = useState<string | null>(null);
 
   const { data: seasons = [], isLoading: seasonsLoading } = useQuery({
     queryKey: ["kotc-seasons"],
@@ -399,6 +401,40 @@ export default function AdminKingsOfTheCourt() {
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
+  const deleteSeason = useMutation({
+    mutationFn: async ({ id, force }: { id: number; force?: boolean }) => {
+      const token = await getToken();
+      const res = await authFetch(token, `${API}/kotc/seasons/${id}${force ? "?force=1" : ""}`, { method: "DELETE" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        const message = (err as Record<string, string>).error ?? "Failed to delete season";
+        if ((err as Record<string, boolean>).requiresForce) {
+          const conflictErr = new Error(message);
+          (conflictErr as Error & { requiresForce?: boolean }).requiresForce = true;
+          throw conflictErr;
+        }
+        throw new Error(message);
+      }
+      return res.json();
+    },
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: ["kotc-seasons"] });
+      if (selectedSeasonId === variables.id) setSelectedSeasonId(null);
+      setDeleteSeasonId(null);
+      setDeleteConflict(null);
+      toast({ title: "Season deleted" });
+    },
+    onError: (e: Error & { requiresForce?: boolean }) => {
+      if (e.requiresForce) {
+        setDeleteConflict(e.message);
+      } else {
+        toast({ title: "Error", description: e.message, variant: "destructive" });
+        setDeleteSeasonId(null);
+        setDeleteConflict(null);
+      }
+    },
+  });
+
   const selectedSeason = seasons.find((s: Record<string, unknown>) => s.id === selectedSeasonId);
 
   return (
@@ -455,6 +491,24 @@ export default function AdminKingsOfTheCourt() {
               >
                 {s.isFeatured ? "Featured" : "Not Featured"}
               </button>
+            </div>
+            <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-border/60">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 px-2 text-xs gap-1 flex-1"
+                onClick={(e) => { e.stopPropagation(); setLocation(`/admin/kotc/${s.id}/edit`); }}
+              >
+                <Edit2 className="h-3 w-3" />Edit
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 px-2 text-xs gap-1 flex-1 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                onClick={(e) => { e.stopPropagation(); setDeleteSeasonId(Number(s.id)); setDeleteConflict(null); }}
+              >
+                <Trash2 className="h-3 w-3" />Delete
+              </Button>
             </div>
           </div>
         ))}
@@ -1233,6 +1287,37 @@ export default function AdminKingsOfTheCourt() {
               onClick={() => disputeCardId !== null && resolveDispute.mutate({ cardId: disputeCardId, newWinnerTeamId: Number(disputeForm.newWinnerTeamId), overrideNotes: disputeForm.overrideNotes })}
             >
               {resolveDispute.isPending ? "Saving…" : "Override Result"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteSeasonId !== null} onOpenChange={(open) => { if (!open) { setDeleteSeasonId(null); setDeleteConflict(null); } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-500">
+              <Trash2 className="h-5 w-5" />Delete Season
+            </DialogTitle>
+          </DialogHeader>
+          {deleteConflict ? (
+            <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-foreground">
+              {deleteConflict}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              This permanently deletes the season along with all its teams, battles, and life history. This cannot be undone.
+            </p>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setDeleteSeasonId(null); setDeleteConflict(null); }}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={deleteSeason.isPending}
+              onClick={() => deleteSeasonId !== null && deleteSeason.mutate({ id: deleteSeasonId, force: !!deleteConflict })}
+            >
+              {deleteSeason.isPending ? "Deleting…" : deleteConflict ? "Delete Anyway" : "Delete Season"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -280,6 +280,35 @@ router.patch("/kotc/seasons/:id", requireAdmin, async (req, res) => {
   }
 });
 
+router.delete("/kotc/seasons/:id", requireAdmin, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+
+    const [season] = await db.select().from(kotcSeasonsTable).where(eq(kotcSeasonsTable.id, id));
+    if (!season) return void res.status(404).json({ error: "Season not found" });
+
+    // Block deletion once real activity has happened — cascade would silently wipe
+    // game history. Admin should keep the season around (unpublished) instead.
+    const battles = await db.select().from(kotcBattlesTable).where(eq(kotcBattlesTable.seasonId, id));
+    const battleIds = battles.map((b) => b.id);
+    const hasCompletedGames = battleIds.length > 0
+      ? (await db.select().from(kotcGameCardsTable).where(inArray(kotcGameCardsTable.battleId, battleIds))).length > 0
+      : false;
+
+    if (hasCompletedGames && !req.query.force) {
+      return void res.status(409).json({
+        error: "This season has recorded games. Deleting it will permanently erase all battle and life history.",
+        requiresForce: true,
+      });
+    }
+
+    await db.delete(kotcSeasonsTable).where(eq(kotcSeasonsTable.id, id));
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to delete season" });
+  }
+});
+
 // ─── Battles ──────────────────────────────────────────────────────────────────
 
 router.get("/kotc/seasons/:seasonId/battles", async (req, res) => {
