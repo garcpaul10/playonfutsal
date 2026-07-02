@@ -25,6 +25,8 @@ export interface Court {
   description?: string | null;
   availableForScheduling: boolean;
   maxPlayers?: number;
+  /** @nullable */
+  venueId?: number | null;
   createdAt?: string;
   updatedAt?: string;
 }

@@ -2337,6 +2337,8 @@ components:
           type: boolean
         maxPlayers:
           type: integer
+        venueId:
+          type: ["integer", "null"]
         createdAt:
           type: string
           format: date-time

@@ -27,6 +27,7 @@ export const ListCourtsResponseItem = zod.object({
   "description": zod.string().nullish(),
   "availableForScheduling": zod.boolean(),
   "maxPlayers": zod.number().optional(),
+  "venueId": zod.number().nullish(),
   "createdAt": zod.coerce.date().optional(),
   "updatedAt": zod.coerce.date().optional()
 })
@@ -47,6 +48,7 @@ export const GetCourtResponse = zod.object({
   "description": zod.string().nullish(),
   "availableForScheduling": zod.boolean(),
   "maxPlayers": zod.number().optional(),
+  "venueId": zod.number().nullish(),
   "createdAt": zod.coerce.date().optional(),
   "updatedAt": zod.coerce.date().optional()
 })

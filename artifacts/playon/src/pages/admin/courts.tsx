@@ -29,6 +29,12 @@ interface Court {
   description: string | null;
   maxPlayers: number | null;
   availableForScheduling: boolean;
+  venueId: number | null;
+}
+
+interface Venue {
+  id: number;
+  name: string;
 }
 
 export default function AdminCourts() {
@@ -43,6 +49,7 @@ export default function AdminCourts() {
   const [newType, setNewType] = useState("full");
   const [newDesc, setNewDesc] = useState("");
   const [newMax, setNewMax] = useState("10");
+  const [newVenueId, setNewVenueId] = useState("");
   const [formError, setFormError] = useState("");
 
   const { data: courts, isLoading } = useQuery<Court[]>({
@@ -50,6 +57,15 @@ export default function AdminCourts() {
     queryFn: async () => {
       const res = await fetch(`${API_BASE}/courts`);
       if (!res.ok) throw new Error("Failed to load courts");
+      return res.json();
+    },
+  });
+
+  const { data: venues } = useQuery<Venue[]>({
+    queryKey: ["venues"],
+    queryFn: async () => {
+      const res = await fetch(`${API_BASE}/venues`);
+      if (!res.ok) throw new Error("Failed to load venues");
       return res.json();
     },
   });
@@ -66,14 +82,14 @@ export default function AdminCourts() {
       const res = await fetch(`${API_BASE}/courts`, {
         method: "POST",
         headers,
-        body: JSON.stringify({ name: newName.trim(), type: newType, description: newDesc || null, maxPlayers: parseInt(newMax) || 10, availableForScheduling: true }),
+        body: JSON.stringify({ name: newName.trim(), type: newType, description: newDesc || null, maxPlayers: parseInt(newMax) || 10, availableForScheduling: true, venueId: newVenueId ? parseInt(newVenueId) : null }),
       });
       if (!res.ok) throw new Error("Failed to create court");
       return res.json();
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["courts"] });
-      setNewName(""); setNewType("full"); setNewDesc(""); setNewMax("10"); setFormError("");
+      setNewName(""); setNewType("full"); setNewDesc(""); setNewMax("10"); setNewVenueId(""); setFormError("");
     },
     onError: (e: Error) => setFormError(e.message),
   });
@@ -84,7 +100,7 @@ export default function AdminCourts() {
       const res = await fetch(`${API_BASE}/courts/${court.id}`, {
         method: "PATCH",
         headers,
-        body: JSON.stringify({ name: court.name, type: court.type, description: court.description, maxPlayers: court.maxPlayers, availableForScheduling: court.availableForScheduling }),
+        body: JSON.stringify({ name: court.name, type: court.type, description: court.description, maxPlayers: court.maxPlayers, availableForScheduling: court.availableForScheduling, venueId: court.venueId }),
       });
       if (!res.ok) throw new Error("Failed to update court");
       return res.json();
@@ -134,7 +150,19 @@ export default function AdminCourts() {
                         </div>
                       </div>
                       <div><Label>Description</Label><Input value={editing.description ?? ""} onChange={e => setEditing({...editing, description: e.target.value})} /></div>
-                      <div><Label>Max Players</Label><Input type="number" value={editing.maxPlayers ?? 10} onChange={e => setEditing({...editing, maxPlayers: parseInt(e.target.value)})} /></div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div><Label>Max Players</Label><Input type="number" value={editing.maxPlayers ?? 10} onChange={e => setEditing({...editing, maxPlayers: parseInt(e.target.value)})} /></div>
+                        <div><Label>Venue</Label>
+                          <select
+                            className="w-full border rounded px-3 py-2 text-sm"
+                            value={editing.venueId ?? ""}
+                            onChange={e => setEditing({...editing, venueId: e.target.value ? parseInt(e.target.value) : null})}
+                          >
+                            <option value="">No venue assigned</option>
+                            {venues?.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+                          </select>
+                        </div>
+                      </div>
                       <div className="flex gap-2">
                         <Button size="sm" onClick={() => updateMutation.mutate(editing)} disabled={updateMutation.isPending}>Save</Button>
                         <Button size="sm" variant="outline" onClick={() => setEditing(null)}>Cancel</Button>
@@ -145,6 +173,11 @@ export default function AdminCourts() {
                       <div>
                         <p className="font-semibold text-lg">{court.name}</p>
                         <p className="text-sm text-muted-foreground">{court.type === "full" ? "Full-size (5v5 with goalies)" : "Small-sided (4v4/3v3)"} &bull; Max {court.maxPlayers} players</p>
+                        <p className="text-sm mt-0.5">
+                          {court.venueId
+                            ? <span className="text-muted-foreground">Venue: <span className="text-foreground font-medium">{venues?.find(v => v.id === court.venueId)?.name ?? `#${court.venueId}`}</span></span>
+                            : <span className="text-amber-600">No venue assigned — won't appear when scheduling battles/events</span>}
+                        </p>
                         {court.description && <p className="text-sm mt-1">{court.description}</p>}
                       </div>
                       {canManageCourts && (
@@ -177,7 +210,15 @@ export default function AdminCourts() {
                 </div>
               </div>
               <div><Label>Description</Label><Input placeholder="Optional description" value={newDesc} onChange={e => setNewDesc(e.target.value)} /></div>
-              <div><Label>Max Players</Label><Input type="number" value={newMax} onChange={e => setNewMax(e.target.value)} /></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div><Label>Max Players</Label><Input type="number" value={newMax} onChange={e => setNewMax(e.target.value)} /></div>
+                <div><Label>Venue</Label>
+                  <select className="w-full border rounded px-3 py-2 text-sm" value={newVenueId} onChange={e => setNewVenueId(e.target.value)}>
+                    <option value="">No venue assigned</option>
+                    {venues?.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+                  </select>
+                </div>
+              </div>
               <Button onClick={() => createMutation.mutate()} disabled={createMutation.isPending}>
                 {createMutation.isPending ? "Adding..." : "Add Court"}
               </Button>
