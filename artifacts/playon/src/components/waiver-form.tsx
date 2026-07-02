@@ -7,7 +7,7 @@ import { AlertCircle, Shield, Users, Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { WaiverSignature, type SignatureResult } from "@/components/waiver-signature";
 
-const API = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
+const API = (import.meta.env.VITE_API_URL ?? "https://workspaceapi-server-production-3488.up.railway.app").replace(/\/$/, "") + "/api";
 
 interface WaiverTemplate {
   id: number;

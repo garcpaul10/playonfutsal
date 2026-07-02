@@ -13,6 +13,7 @@ import { useGetMyProfile } from "@workspace/api-client-react";
 import { useDashboardSwitcher } from "@/hooks/use-dashboard-switcher";
 import { useNotifications, type UserNotification } from "@/hooks/useNotifications";
 import QRCodeLib from "qrcode";
+import { API_BASE } from "@/lib/api-base";
 
 import playonLogo from "@assets/PlayOn_RBG_Trans_1780083327599.png";
 
@@ -192,7 +193,7 @@ function QrModal({ onClose, qrValue, isParent }: { onClose: () => void; qrValue:
   React.useEffect(() => {
     if (!isParent) return;
     getToken().then((token) => {
-      fetch(`${import.meta.env.BASE_URL}api/me/children-qr-today`, {
+      fetch(`${API_BASE}/me/children-qr-today`, {
         headers: { Authorization: `Bearer ${token}` },
       })
         .then((r) => (r.ok ? r.json() : null))

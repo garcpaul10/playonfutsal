@@ -26,7 +26,7 @@ import {
   Step6Review,
 } from "./new";
 
-const API = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
+const API = (import.meta.env.VITE_API_URL ?? "https://workspaceapi-server-production-3488.up.railway.app").replace(/\/$/, "") + "/api";
 const STEPS = ["Basics", "Match Rules", "Registration", "Dates", "Battles", "Review"];
 
 function useAuthHeaders() {
