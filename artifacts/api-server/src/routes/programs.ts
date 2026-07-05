@@ -489,6 +489,15 @@ async function getAllPrograms(opts: GetAllProgramsOptions = {}) {
     const startDate: string = nextOccurrenceDate(rule);
     const startsAtDate = occurrenceDateToUtc(startDate, rule.startTime ?? "00:00");
 
+    // One-time templates have a fixed, non-advancing date — once that single occurrence
+    // ends, the card must disappear (isProgramVisible below checks _endsAt). Recurring
+    // templates always self-advance to the next matching weekday, so they stay "active".
+    const isOneTime = rule.type === "one_time";
+    const durationMin: number | null = rule.durationMinutes ?? null;
+    const computedEndsAt = isOneTime && durationMin
+      ? new Date(startsAtDate.getTime() + durationMin * 60 * 1000)
+      : null;
+
     const tpAgg = templatePoolAggMap.get(t.id);
     const spotsTotal: number = tpAgg ? tpAgg.spotsTotal : 0;
     const spotsConfirmed: number = tpAgg ? tpAgg.spotsConfirmed : 0;
@@ -519,8 +528,8 @@ async function getAllPrograms(opts: GetAllProgramsOptions = {}) {
       showOnMobile: t.showOnMobile,
       startsAt: startsAtDate.toISOString(),
       _startsAt: startsAtDate,
-      _endsAt: null,
-      _activeOverride: "active" as const,
+      _endsAt: computedEndsAt,
+      _activeOverride: isOneTime ? null : ("active" as const),
       _durationMinutes: rule.durationMinutes ?? null,
     };
   });
