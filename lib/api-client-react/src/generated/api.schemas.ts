@@ -65,6 +65,7 @@ export const ProgramSummaryType = {
   camp: 'camp',
   drop_in: 'drop_in',
   tournament: 'tournament',
+  kotc: 'kotc',
 } as const;
 
 export type ProgramSummaryStatus = typeof ProgramSummaryStatus[keyof typeof ProgramSummaryStatus];
@@ -112,6 +113,12 @@ export interface ProgramSummary {
   isTemplate?: boolean;
   /** Next occurrence date (YYYY-MM-DD) for drop-in template cards */
   occurrenceDate?: string;
+  /** Players per team; present on KotC season cards */
+  teamSize?: number;
+  /** Sport for this season; present on KotC season cards */
+  sport?: string;
+  /** Number of active teams registered; present on KotC season cards */
+  teamCount?: number;
 }
 
 export type LeagueAgeGroup = typeof LeagueAgeGroup[keyof typeof LeagueAgeGroup];
@@ -1820,6 +1827,7 @@ export const ListProgramsType = {
   camp: 'camp',
   drop_in: 'drop_in',
   tournament: 'tournament',
+  kotc: 'kotc',
 } as const;
 
 export type ListLeaguesParams = {

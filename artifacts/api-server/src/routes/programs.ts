@@ -2,6 +2,28 @@ import { Router, type IRouter } from "express";
 import { db, leaguesTable, campsTable, dropinsTable, tournamentsTable, dropinCourtPoolsTable, spotsTable, dropinTemplatesTable, dropinTemplatePoolsTable, dropinOccurrencesTable, kotcSeasonsTable, kotcTeamsTable } from "@workspace/db";
 import { eq, and, inArray, isNull, isNotNull, ne, sql, count } from "drizzle-orm";
 import { ListProgramsQueryParams, ListFeaturedProgramsResponse, ListProgramsResponse } from "@workspace/api-zod";
+
+interface LenientArraySchema {
+  element: { safeParse: (item: unknown) => { success: boolean; data?: unknown; error?: { message: string } } };
+}
+
+/**
+ * Validates each item individually against an array schema's element type and drops
+ * (with a logged warning) any item that fails, instead of letting one malformed item
+ * (e.g. a program type the response schema hasn't caught up to yet) 500 the whole feed.
+ */
+function parseArrayLenient(schema: LenientArraySchema, items: unknown[]): unknown[] {
+  const valid: unknown[] = [];
+  for (const item of items) {
+    const result = schema.element.safeParse(item);
+    if (result.success) {
+      valid.push(result.data);
+    } else {
+      console.error("[programs] dropping invalid program from response:", (item as { id?: unknown; type?: unknown })?.id, (item as { id?: unknown; type?: unknown })?.type, result.error?.message);
+    }
+  }
+  return valid;
+}
 import { requireAdmin, requirePermission, requireAnyPermission } from "../middlewares/auth.js";
 import type { AuthedRequest } from "../middlewares/auth.js";
 import { occurrenceDateToUtc } from "../services/dropinOccurrenceService.js";
@@ -549,9 +571,9 @@ async function getAllPrograms(opts: GetAllProgramsOptions = {}) {
   }
 
   const kotcPrograms = (kotcSeasons as any[]).map((s) => {
-    const lifePacks: Array<{ price: number }> = Array.isArray(s.lifePacks) ? s.lifePacks : [];
+    const lifePacks: Array<{ priceCents: number }> = Array.isArray(s.lifePacks) ? s.lifePacks : [];
     const minLifePrice = lifePacks.length
-      ? Math.min(...lifePacks.map((p) => Number(p.price ?? 0)))
+      ? Math.min(...lifePacks.map((p) => Number(p.priceCents ?? 0))) / 100
       : 0;
     const teamCount = kotcTeamCountMap.get(s.id) ?? 0;
     const startDate = s.startsAt ? new Date(s.startsAt).toISOString().split("T")[0] : new Date().toISOString().split("T")[0];
@@ -616,7 +638,7 @@ router.get("/programs/featured", async (_req, res): Promise<void> => {
     })
     .map(({ _startsAt: _, _endsAt: __, _activeOverride: ___, _durationMinutes: ____, isPublished: _p, isFeatured: _f, showOnMobile: _m, ...rest }) => rest)
     .slice(0, 6);
-  res.json(ListFeaturedProgramsResponse.parse(featured));
+  res.json(parseArrayLenient(ListFeaturedProgramsResponse, featured));
 });
 
 router.get("/programs", async (req, res): Promise<void> => {
@@ -634,7 +656,7 @@ router.get("/programs", async (req, res): Promise<void> => {
     return aTime - bTime;
   });
   const stripped = all.map(({ _startsAt: _, _endsAt: __, _activeOverride: ___, _durationMinutes: ____, isPublished: _p, isFeatured: _f, showOnMobile: _m, ...rest }) => rest);
-  res.json(ListProgramsResponse.parse(stripped));
+  res.json(parseArrayLenient(ListProgramsResponse, stripped));
 });
 
 // ─── Visibility PATCH endpoints ─────────────────────────────────────────────

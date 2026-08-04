@@ -138,7 +138,7 @@ export const UpdateSeasonResponse = zod.object({
  */
 export const ListFeaturedProgramsResponseItem = zod.object({
   "id": zod.number(),
-  "type": zod.enum(['league', 'camp', 'drop_in', 'tournament']),
+  "type": zod.enum(['league', 'camp', 'drop_in', 'tournament', 'kotc']),
   "name": zod.string(),
   "ageGroup": zod.string(),
   "status": zod.enum(['upcoming', 'active', 'completed']),
@@ -154,7 +154,10 @@ export const ListFeaturedProgramsResponseItem = zod.object({
   "poolLatestStartsAt": zod.coerce.date().nullish().describe('ISO 8601 timestamp of the latest pool start (for time-range display); present on drop-in cards with multiple pools'),
   "poolCount": zod.number().nullish().describe('Number of court pools available; present on drop-in and drop-in template cards'),
   "isTemplate": zod.boolean().optional(),
-  "occurrenceDate": zod.string().optional().describe('Next occurrence date (YYYY-MM-DD) for drop-in template cards')
+  "occurrenceDate": zod.string().optional().describe('Next occurrence date (YYYY-MM-DD) for drop-in template cards'),
+  "teamSize": zod.number().optional().describe('Players per team; present on KotC season cards'),
+  "sport": zod.string().optional().describe('Sport for this season; present on KotC season cards'),
+  "teamCount": zod.number().optional().describe('Number of active teams registered; present on KotC season cards')
 })
 export const ListFeaturedProgramsResponse = zod.array(ListFeaturedProgramsResponseItem)
 
@@ -163,14 +166,14 @@ export const ListFeaturedProgramsResponse = zod.array(ListFeaturedProgramsRespon
  * @summary Browse all programs
  */
 export const ListProgramsQueryParams = zod.object({
-  "type": zod.enum(['league', 'camp', 'drop_in', 'tournament']).optional(),
+  "type": zod.enum(['league', 'camp', 'drop_in', 'tournament', 'kotc']).optional(),
   "ageGroup": zod.coerce.string().optional(),
   "season": zod.coerce.number().optional()
 })
 
 export const ListProgramsResponseItem = zod.object({
   "id": zod.number(),
-  "type": zod.enum(['league', 'camp', 'drop_in', 'tournament']),
+  "type": zod.enum(['league', 'camp', 'drop_in', 'tournament', 'kotc']),
   "name": zod.string(),
   "ageGroup": zod.string(),
   "status": zod.enum(['upcoming', 'active', 'completed']),
@@ -186,7 +189,10 @@ export const ListProgramsResponseItem = zod.object({
   "poolLatestStartsAt": zod.coerce.date().nullish().describe('ISO 8601 timestamp of the latest pool start (for time-range display); present on drop-in cards with multiple pools'),
   "poolCount": zod.number().nullish().describe('Number of court pools available; present on drop-in and drop-in template cards'),
   "isTemplate": zod.boolean().optional(),
-  "occurrenceDate": zod.string().optional().describe('Next occurrence date (YYYY-MM-DD) for drop-in template cards')
+  "occurrenceDate": zod.string().optional().describe('Next occurrence date (YYYY-MM-DD) for drop-in template cards'),
+  "teamSize": zod.number().optional().describe('Players per team; present on KotC season cards'),
+  "sport": zod.string().optional().describe('Sport for this season; present on KotC season cards'),
+  "teamCount": zod.number().optional().describe('Number of active teams registered; present on KotC season cards')
 })
 export const ListProgramsResponse = zod.array(ListProgramsResponseItem)
 

@@ -193,7 +193,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [league, camp, drop_in, tournament]
+            enum: [league, camp, drop_in, tournament, kotc]
         - name: ageGroup
           in: query
           schema:
@@ -2408,7 +2408,7 @@ components:
           type: integer
         type:
           type: string
-          enum: [league, camp, drop_in, tournament]
+          enum: [league, camp, drop_in, tournament, kotc]
         name:
           type: string
         ageGroup:
@@ -2450,6 +2450,15 @@ components:
         occurrenceDate:
           type: string
           description: Next occurrence date (YYYY-MM-DD) for drop-in template cards
+        teamSize:
+          type: integer
+          description: Players per team; present on KotC season cards
+        sport:
+          type: string
+          description: Sport for this season; present on KotC season cards
+        teamCount:
+          type: integer
+          description: Number of active teams registered; present on KotC season cards
 
     League:
       type: object
