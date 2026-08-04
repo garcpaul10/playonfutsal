@@ -177,6 +177,17 @@ export default function KotcTeamPage() {
     },
   });
 
+  const { data: qrData } = useQuery({
+    queryKey: ["kotc-team-qr", teamId],
+    enabled: !!teamId && !!team?.isCaptainOrAdmin,
+    queryFn: async () => {
+      const token = await getToken();
+      const res = await authFetch(token, `${API}/kotc/teams/${teamId}/qr`);
+      if (!res.ok) throw new Error("Failed to load QR code");
+      return res.json() as Promise<{ qrCode: string; dataUri: string; scope: string }>;
+    },
+  });
+
   const { data: ledger = [] } = useQuery({
     queryKey: ["kotc-ledger", teamId],
     enabled: !!teamId,
@@ -809,9 +820,16 @@ export default function KotcTeamPage() {
                     Show this to the Battle Moderator before each game.
                   </p>
                 </div>
-                <div className="rounded-xl border border-border bg-muted p-6 text-center">
-                  <p className="text-xs font-mono text-muted-foreground break-all">{team.qrCode}</p>
-                </div>
+                {qrData?.dataUri ? (
+                  <div className="rounded-xl border border-border bg-white p-6 flex items-center justify-center">
+                    <img src={qrData.dataUri} alt="Team QR code" className="w-48 h-48" />
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-border bg-muted p-10 flex items-center justify-center">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                )}
+                <p className="text-xs font-mono text-muted-foreground break-all">{team.qrCode}</p>
                 <p className="text-xs text-muted-foreground">
                   QR code is tied to this team for the entire season.
                 </p>

@@ -120,7 +120,7 @@ export default function KotcSeasonDetailPage() {
     );
   }
 
-  const lifePacks: Array<{ label: string; lives: number; price: number }> = Array.isArray(season.lifePacks) ? season.lifePacks : [];
+  const lifePacks: Array<{ name: string; lives: number; priceCents: number }> = Array.isArray(season.lifePacks) ? season.lifePacks : [];
   const upcomingBattles = (battles as any[]).filter((b: any) => b.status === "scheduled" || b.status === "upcoming").slice(0, 5);
   const openTeams = (teams as any[]).filter((t: any) => t.status === "active" && (t.players?.filter((p: any) => p.status === "active").length ?? 0) < (season.teamSize ?? 4));
 
@@ -197,12 +197,12 @@ export default function KotcSeasonDetailPage() {
               {lifePacks.map((pack, i) => (
                 <div key={i} className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 flex items-center justify-between">
                   <div>
-                    <p className="font-bold text-foreground">{pack.label}</p>
+                    <p className="font-bold text-foreground">{pack.name}</p>
                     <p className="text-sm text-muted-foreground flex items-center gap-1">
                       <Heart className="h-3 w-3 text-red-400" /> {pack.lives} lives
                     </p>
                   </div>
-                  <span className="text-lg font-black text-amber-400">${pack.price}</span>
+                  <span className="text-lg font-black text-amber-400">${(pack.priceCents / 100).toFixed(2)}</span>
                 </div>
               ))}
             </div>

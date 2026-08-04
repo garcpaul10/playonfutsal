@@ -8,10 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { QrScannerModal } from "@/components/qr-scanner-modal";
 import {
   Crown, Heart, Flame, Swords, QrCode, CheckCircle2,
   AlertTriangle, Clock, Users, Trophy, ChevronRight, RefreshCw,
-  Play, Flag,
+  Play, Flag, Camera,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -127,6 +128,7 @@ export default function BattleModeratorPage() {
   const [courtNumber, setCourtNumber] = useState(1);
   const [qr1, setQr1] = useState("");
   const [qr2, setQr2] = useState("");
+  const [scanningField, setScanningField] = useState<1 | 2 | null>(null);
   const [activeGame, setActiveGame] = useState<{
     gameCardId: number; team1: Record<string, unknown>; team2: Record<string, unknown>;
     rulesCards: Array<{ title: string; body: string; icon: string }>;
@@ -378,24 +380,43 @@ export default function BattleModeratorPage() {
                 <div className="space-y-3">
                   <div>
                     <label className="text-xs font-semibold text-muted-foreground">Team 1 Captain QR</label>
-                    <Input
-                      value={qr1}
-                      onChange={(e) => setQr1(e.target.value)}
-                      placeholder="Scan or enter QR code..."
-                      className="mt-1 font-mono text-sm"
-                      autoFocus
-                    />
+                    <div className="flex gap-2 mt-1">
+                      <Input
+                        value={qr1}
+                        onChange={(e) => setQr1(e.target.value)}
+                        placeholder="Scan or enter QR code..."
+                        className="font-mono text-sm"
+                        autoFocus
+                      />
+                      <Button type="button" variant="outline" size="icon" onClick={() => setScanningField(1)}>
+                        <Camera className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                   <div>
                     <label className="text-xs font-semibold text-muted-foreground">Team 2 Captain QR</label>
-                    <Input
-                      value={qr2}
-                      onChange={(e) => setQr2(e.target.value)}
-                      placeholder="Scan or enter QR code..."
-                      className="mt-1 font-mono text-sm"
-                    />
+                    <div className="flex gap-2 mt-1">
+                      <Input
+                        value={qr2}
+                        onChange={(e) => setQr2(e.target.value)}
+                        placeholder="Scan or enter QR code..."
+                        className="font-mono text-sm"
+                      />
+                      <Button type="button" variant="outline" size="icon" onClick={() => setScanningField(2)}>
+                        <Camera className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
+                <QrScannerModal
+                  open={scanningField !== null}
+                  onClose={() => setScanningField(null)}
+                  onScan={(value) => {
+                    if (scanningField === 1) setQr1(value);
+                    else if (scanningField === 2) setQr2(value);
+                    setScanningField(null);
+                  }}
+                />
                 <Button
                   onClick={() => scanQR.mutate()}
                   disabled={!qr1.trim() || !qr2.trim() || scanQR.isPending}

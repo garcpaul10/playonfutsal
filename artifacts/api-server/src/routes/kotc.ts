@@ -929,9 +929,25 @@ router.get("/kotc/my-teams", requireAuth, async (req, res) => {
       .from(kotcTeamsTable)
       .where(inArray(kotcTeamsTable.id, teamIds));
 
+    const allPlayers = await db
+      .select()
+      .from(kotcTeamPlayersTable)
+      .where(and(inArray(kotcTeamPlayersTable.teamId, teamIds), eq(kotcTeamPlayersTable.status, "active")));
+
+    const gameCards = await db
+      .select()
+      .from(kotcGameCardsTable)
+      .where(and(
+        eq(kotcGameCardsTable.status, "completed"),
+        or(inArray(kotcGameCardsTable.team1Id, teamIds), inArray(kotcGameCardsTable.team2Id, teamIds)),
+      ));
+
     res.json(teams.map((t) => ({
       ...t,
       myRole: memberships.find((m) => m.teamId === t.id)?.role ?? "player",
+      playerCount: allPlayers.filter((p) => p.teamId === t.id).length,
+      wins: gameCards.filter((c) => c.winnerTeamId === t.id).length,
+      losses: gameCards.filter((c) => c.loserTeamId === t.id).length,
     })));
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch teams" });
@@ -2412,7 +2428,7 @@ router.post("/kotc/teams/:teamId/checkout", requireAuth, async (req, res) => {
           subject: `Purchase Approval Required — ${team.name}`,
           body: `${team.name} wants to purchase "${pack.name}" (${pack.lives} lives) for $${(pack.priceCents / 100).toFixed(2)}. Open the app to approve or decline.`,
           metadata: { pendingPurchaseId: pending.id, teamId, packName: pack.name, priceCents: pack.priceCents },
-          link: `/kotc/pending-purchases/${pending.id}`,
+          link: `/kotc/pending-purchases`,
         }).catch(() => {});
       }
 
@@ -2454,8 +2470,8 @@ router.post("/kotc/teams/:teamId/checkout", requireAuth, async (req, res) => {
         packPriceCents: String(priceInCents),
         clerkUserId: clerkId!,
       },
-      success_url: `${APP_URL}/kotc/team/${teamId}?purchase=success`,
-      cancel_url: `${APP_URL}/kotc/team/${teamId}?purchase=cancelled`,
+      success_url: `${APP_URL}/kotc/teams/${teamId}?purchase=success`,
+      cancel_url: `${APP_URL}/kotc/teams/${teamId}?purchase=cancelled`,
     });
 
     res.json({
@@ -2487,7 +2503,19 @@ router.get("/kotc/pending-purchases", requireAuth, async (req, res) => {
       ))
       .orderBy(desc(kotcPendingPurchasesTable.createdAt));
 
-    res.json(pending);
+    if (pending.length === 0) return void res.json([]);
+
+    const teamIds = [...new Set(pending.map((p) => p.teamId))];
+    const teams = await db.select().from(kotcTeamsTable).where(inArray(kotcTeamsTable.id, teamIds));
+    const seasonIds = [...new Set(pending.map((p) => p.seasonId))];
+    const seasons = await db.select().from(kotcSeasonsTable).where(inArray(kotcSeasonsTable.id, seasonIds));
+
+    res.json(pending.map((p) => ({
+      ...p,
+      teamName: teams.find((t) => t.id === p.teamId)?.name ?? null,
+      teamColor: teams.find((t) => t.id === p.teamId)?.color ?? null,
+      seasonName: seasons.find((s) => s.id === p.seasonId)?.name ?? null,
+    })));
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch pending purchases" });
   }
@@ -2591,8 +2619,8 @@ router.post("/kotc/pending-purchases/:id/approve", requireAuth, async (req, res)
         pendingPurchaseId: String(pending.id),
         clerkUserId: clerkId!,
       },
-      success_url: `${APP_URL}/kotc/team/${pending.teamId}?purchase=success`,
-      cancel_url: `${APP_URL}/kotc/team/${pending.teamId}?purchase=cancelled`,
+      success_url: `${APP_URL}/kotc/teams/${pending.teamId}?purchase=success`,
+      cancel_url: `${APP_URL}/kotc/teams/${pending.teamId}?purchase=cancelled`,
     });
 
     await db.update(kotcPendingPurchasesTable)

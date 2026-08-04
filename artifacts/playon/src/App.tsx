@@ -272,6 +272,7 @@ import StaffTraining from "@/pages/staff/training";
 import TrainingSectionPage from "@/pages/staff/training-section";
 import FixtureGameCard from "@/pages/fixtures/[id]/game-card";
 import ChildDetail from "@/pages/guardian/child-detail";
+import GuardianKotcApprovals from "@/pages/guardian/kotc-approvals";
 import ScannerPage from "@/pages/scanner";
 import Checkout from "@/pages/checkout";
 import CheckoutComplete from "@/pages/checkout-complete";
@@ -474,6 +475,7 @@ function ClerkProviderWithRoutes() {
             <Route path="/guardian/children/qr">{() => <Redirect to="/me?tab=family" />}</Route>
             <Route path="/guardian/children">{() => <Redirect to="/me?tab=family" />}</Route>
             <Route path="/guardian/children/:youthUserId" component={ChildDetail} />
+            <Route path="/kotc/pending-purchases">{() => <GuardianKotcApprovals />}</Route>
             <Route path="/scanner" component={ScannerPage} />
 
             <Route path="/admin/sub-ref-alerts">{() => <AdminLayout><AdminSubRefAlerts /></AdminLayout>}</Route>

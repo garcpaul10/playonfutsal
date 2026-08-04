@@ -144,7 +144,7 @@ function CourtCard({
 }) {
   const onCourt = entries.filter((e) => e.status === "on_court");
   const queued = entries.filter((e) => e.status === "queued");
-  const graceTeams = entries.filter((e) => e.status === "grace");
+  const graceTeams = entries.filter((e) => e.status === "pending_purchase");
   const onDeck = queued[0];
   const remaining = queued.slice(1);
   const allActive = [...onCourt, ...graceTeams, ...queued];

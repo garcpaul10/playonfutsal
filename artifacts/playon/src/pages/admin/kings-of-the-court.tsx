@@ -982,9 +982,9 @@ export default function AdminKingsOfTheCourt() {
               <Select value={dramaForm.triggerType} onValueChange={(v) => setDramaForm((f) => ({ ...f, triggerType: v }))}>
                 <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="consecutive_wins">Consecutive Wins</SelectItem>
-                  <SelectItem value="game_without_loss">Games Played Without a Loss</SelectItem>
-                  <SelectItem value="comeback_wins">Comeback Wins (won after being down)</SelectItem>
+                  <SelectItem value="consecutive_wins">Consecutive Wins (streak within a battle)</SelectItem>
+                  <SelectItem value="win_from_one_life">Clutch Save (win while down to 1 life)</SelectItem>
+                  <SelectItem value="most_wins_in_battle">Top Performer (most wins in a battle)</SelectItem>
                 </SelectContent>
               </Select>
             </div>

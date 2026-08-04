@@ -47,7 +47,6 @@ export default function KotcMyTeamsPage() {
   const [selectedSeasonId, setSelectedSeasonId] = useState<string>("");
   const [teamName, setTeamName] = useState("");
   const [teamColor, setTeamColor] = useState(TEAM_COLORS[0].value);
-  const [courtPreference, setCourtPreference] = useState("1");
 
   const { data: seasons = [], isLoading: seasonsLoading } = useQuery({
     queryKey: ["kotc-seasons-my"],
@@ -113,7 +112,6 @@ export default function KotcMyTeamsPage() {
         body: JSON.stringify({
           name: teamName.trim(),
           color: teamColor,
-          courtPreference: Number(courtPreference),
         }),
       });
       if (!res.ok) {
@@ -346,16 +344,6 @@ export default function KotcMyTeamsPage() {
                   />
                 ))}
               </div>
-            </div>
-            <div>
-              <Label>Preferred Court # <span className="text-muted-foreground">(optional)</span></Label>
-              <Input
-                type="number"
-                min={1}
-                value={courtPreference}
-                onChange={(e) => setCourtPreference(e.target.value)}
-                className="mt-1"
-              />
             </div>
           </div>
           <DialogFooter>
