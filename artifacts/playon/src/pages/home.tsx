@@ -492,6 +492,8 @@ function RichProgramCard({ program }: { program: any }) {
               <Users className="h-3.5 w-3.5 flex-shrink-0" style={{ color: cfg.accent }} />
               {(program.type === "drop_in" || program.type === "dropin") && program.poolCount
                 ? <span>{program.poolCount} session{program.poolCount !== 1 ? "s" : ""} available</span>
+                : program.type === "kotc"
+                ? <span>{program.teamCount ?? 0} team{program.teamCount === 1 ? "" : "s"} registered</span>
                 : <span>{spotsTaken} / {spotsTotal} Spots</span>
               }
             </div>
@@ -501,21 +503,28 @@ function RichProgramCard({ program }: { program: any }) {
             </div>
           </div>
 
-          {/* Spots progress bar */}
-          <div>
-            <div className="flex justify-between items-center mb-1.5">
-              <span className={`text-xs font-semibold ${almostFull ? "text-orange-400" : "text-white/50"}`}>
-                {almostFull ? "⚡ Filling fast" : `${spotsAvailable} spots left`}
-              </span>
-              <span className="text-xs text-white/30">{spotsTaken}/{spotsTotal}</span>
+          {/* Spots progress bar (KotC has no season-wide capacity, so show a simple status line instead) */}
+          {program.type === "kotc" ? (
+            <div className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: cfg.accent }}>
+              <Users className="h-3.5 w-3.5" />
+              Open registration — create or join a team
             </div>
-            <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all duration-700 ${cfg.progressColorClass}`}
-                style={{ width: `${fillPct}%` }}
-              />
+          ) : (
+            <div>
+              <div className="flex justify-between items-center mb-1.5">
+                <span className={`text-xs font-semibold ${almostFull ? "text-orange-400" : "text-white/50"}`}>
+                  {almostFull ? "⚡ Filling fast" : `${spotsAvailable} spots left`}
+                </span>
+                <span className="text-xs text-white/30">{spotsTaken}/{spotsTotal}</span>
+              </div>
+              <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-700 ${cfg.progressColorClass}`}
+                  style={{ width: `${fillPct}%` }}
+                />
+              </div>
             </div>
-          </div>
+          )}
 
           {/* CTA */}
           <Link href={
@@ -523,6 +532,8 @@ function RichProgramCard({ program }: { program: any }) {
               ? program.isTemplate
                 ? `/dropins/occ/${program.id}/${program.occurrenceDate}`
                 : `/dropins/${program.id}`
+              : program.type === "kotc"
+              ? `/kotc/seasons/${program.id}`
               : `/${({ league: "leagues", camp: "camps", tournament: "tournaments" } as Record<string, string>)[program.type] ?? `${program.type}s`}/${program.id}`
           } className="block">
             <button
