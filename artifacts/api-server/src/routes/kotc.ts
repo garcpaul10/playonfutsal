@@ -1178,11 +1178,16 @@ function getRulesCards(sport: string, season: Record<string, unknown>): Array<{
   const winTarget = season.winTarget || 7;
   const timeLimit = season.timeLimitMinutes || 5;
   const graceSeconds = season.gracePeriodSeconds || 60;
+  const winCondition = season.winCondition || "points";
+
+  const winConditionBody = winCondition === "time_limit"
+    ? `First team to score ${winTarget} points OR the team with more points when the ${timeLimit}-minute time limit expires wins. If time expires while tied, the team that has been on court longer loses.`
+    : `First team to score ${winTarget} points wins — there is no time limit. Play continues until one team reaches ${winTarget}.`;
 
   return [
     {
       title: "Win Condition",
-      body: `First team to score ${winTarget} points OR the team with more points when the ${timeLimit}-minute time limit expires wins. If time expires while tied, the team that has been on court longer loses.`,
+      body: winConditionBody,
       icon: "trophy",
     },
     {
