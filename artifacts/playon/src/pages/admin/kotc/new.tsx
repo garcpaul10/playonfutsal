@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { WizardShell } from "@/components/admin/WizardShell";
+import { LifePacksEditor } from "@/components/kotc/life-packs-editor";
 import { useDraftAutosave } from "@/hooks/use-draft-autosave";
 import { Plus, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 
@@ -423,14 +424,11 @@ export function Step3Registration({
         </button>
         {showAdvanced && (
           <div className="px-4 pb-4 pt-1 border-t">
-            <Label>Life Pack Config (JSON)</Label>
-            <Textarea
-              className="mt-1 font-mono text-xs"
-              rows={8}
+            <LifePacksEditor
               value={state.lifePacksJson}
-              onChange={(e) => onChange({ lifePacksJson: e.target.value })}
+              onChange={(json) => onChange({ lifePacksJson: json })}
             />
-            <p className="text-xs text-muted-foreground mt-1">
+            <p className="text-xs text-muted-foreground mt-2">
               Defines the life economy for this season. Leave as default unless you have specific requirements.
             </p>
           </div>

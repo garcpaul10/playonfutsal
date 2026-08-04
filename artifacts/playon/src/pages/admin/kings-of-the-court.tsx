@@ -14,6 +14,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { LifePacksEditor } from "@/components/kotc/life-packs-editor";
 import {
   Crown, Plus, Calendar, Users, Heart, Flame, Trophy,
   Settings, Swords, Clock,
@@ -1084,17 +1085,7 @@ export default function AdminKingsOfTheCourt() {
               <Input type="number" value={waitlistWindowInput} onChange={(e) => setWaitlistWindowInput(Number(e.target.value))} className="mt-1" min={0} max={120} />
               <p className="text-xs text-muted-foreground mt-1">Teams can join/leave the waitlist until this many minutes before battle start.</p>
             </div>
-            <div>
-              <Label>Life Packs (JSON array)</Label>
-              <Textarea
-                value={lifePacksJson}
-                onChange={(e) => setLifePacksJson(e.target.value)}
-                className="mt-1 font-mono text-xs"
-                rows={10}
-                placeholder={`[\n  { "name": "Starter Pack", "lives": 3, "priceCents": 999 },\n  { "name": "Team Bundle", "lives": 10, "priceCents": 2999 }\n]`}
-              />
-              <p className="text-xs text-muted-foreground mt-1">Each pack needs: name (string), lives (number), priceCents (integer).</p>
-            </div>
+            <LifePacksEditor value={lifePacksJson} onChange={setLifePacksJson} />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowLifePacksForm(false)}>Cancel</Button>
