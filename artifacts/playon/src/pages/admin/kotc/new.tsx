@@ -89,6 +89,7 @@ export interface WizardState {
   timeLimitMinutes: string;
   gracePeriodSeconds: string;
   teamSize: string;
+  maxRosterSize: string;
   livesRequired: string;
   maxTeamsPerCourt: string;
   lifePacksJson: string;
@@ -110,6 +111,7 @@ export function defaultWizardState(): WizardState {
     timeLimitMinutes: "5",
     gracePeriodSeconds: "60",
     teamSize: "4",
+    maxRosterSize: "",
     livesRequired: "3",
     maxTeamsPerCourt: "8",
     lifePacksJson: DEFAULT_LIFE_PACKS,
@@ -350,7 +352,7 @@ export function Step2MatchRules({
           </p>
         </div>
         <div>
-          <Label>Team Size</Label>
+          <Label>On-Court Format</Label>
           <Input
             type="number"
             min="1"
@@ -359,9 +361,25 @@ export function Step2MatchRules({
             onChange={(e) => onChange({ teamSize: e.target.value })}
           />
           <p className="text-xs text-muted-foreground mt-1">
-            Number of players on each team per battle — e.g. 3 for 3-on-3.
+            Players per side actually on court — e.g. 3 for 3v3.
           </p>
         </div>
+      </div>
+
+      <div>
+        <Label>Max Roster Size <span className="text-muted-foreground">(optional)</span></Label>
+        <Input
+          type="number"
+          min={state.teamSize || 1}
+          className="mt-1"
+          placeholder={`Same as on-court format (${state.teamSize || 4})`}
+          value={state.maxRosterSize}
+          onChange={(e) => onChange({ maxRosterSize: e.target.value })}
+        />
+        <p className="text-xs text-muted-foreground mt-1">
+          Total players allowed on a team, including substitutes. Leave blank if there's no bench —
+          e.g. set On-Court Format to 3 and this to 5 for 3v3 with 2 subs.
+        </p>
       </div>
     </div>
   );
@@ -737,7 +755,8 @@ export function Step6Review({
           <ReviewRow label="Time Limit" value={`${state.timeLimitMinutes} min`} />
         )}
         <ReviewRow label="Grace Period" value={`${state.gracePeriodSeconds}s`} />
-        <ReviewRow label="Team Size" value={`${state.teamSize}v${state.teamSize}`} />
+        <ReviewRow label="On-Court Format" value={`${state.teamSize}v${state.teamSize}`} />
+        <ReviewRow label="Max Roster Size" value={state.maxRosterSize || "Same as on-court format"} />
       </ReviewSection>
 
       <ReviewSection title="Registration & Economy">
@@ -893,6 +912,7 @@ export default function KotcNewPage() {
           genderBracket: state.genderBracket,
           ageBracket: state.ageBracket,
           teamSize: Number(state.teamSize),
+          maxRosterSize: state.maxRosterSize.trim() ? Number(state.maxRosterSize) : null,
           winCondition: state.winMode,
           winTarget: Number(state.winTarget),
           timeLimitMinutes: state.winMode === "time_limit" ? Number(state.timeLimitMinutes) : undefined,

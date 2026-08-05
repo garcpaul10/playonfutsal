@@ -52,6 +52,7 @@ function seasonToWizardState(season: any): WizardState {
     timeLimitMinutes: String(season.timeLimitMinutes ?? 5),
     gracePeriodSeconds: String(season.gracePeriodSeconds ?? 60),
     teamSize: String(season.teamSize ?? 4),
+    maxRosterSize: season.maxRosterSize ? String(season.maxRosterSize) : "",
     livesRequired: String(season.livesRequired ?? 3),
     maxTeamsPerCourt: String(season.maxTeamsPerCourt ?? 8),
     lifePacksJson: season.lifePacks?.length
@@ -186,6 +187,7 @@ export default function KotcEditPage() {
           genderBracket: state.genderBracket,
           ageBracket: state.ageBracket,
           teamSize: Number(state.teamSize),
+          maxRosterSize: state.maxRosterSize.trim() ? Number(state.maxRosterSize) : null,
           winCondition: state.winMode,
           winTarget: Number(state.winTarget),
           timeLimitMinutes: state.winMode === "time_limit" ? Number(state.timeLimitMinutes) : undefined,

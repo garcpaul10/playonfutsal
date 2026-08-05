@@ -8,6 +8,7 @@ export const kotcSeasonsTable = pgTable("kotc_seasons", {
   genderBracket: text("gender_bracket").notNull().default("coed"),
   ageBracket: text("age_bracket").notNull().default("open"),
   teamSize: integer("team_size").notNull().default(4),
+  maxRosterSize: integer("max_roster_size"),
   winCondition: text("win_condition").notNull().default("points"),
   winTarget: integer("win_target").notNull().default(7),
   timeLimitMinutes: integer("time_limit_minutes").notNull().default(5),

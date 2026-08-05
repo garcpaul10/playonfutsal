@@ -186,7 +186,7 @@ const VALID_AGE_BRACKETS = ["open", "u12", "u14", "u16", "u18", "adult", "custom
 router.post("/kotc/seasons", requireAdmin, async (req, res) => {
   try {
     const {
-      name, sport, sportConfig, genderBracket, ageBracket, teamSize,
+      name, sport, sportConfig, genderBracket, ageBracket, teamSize, maxRosterSize,
       winCondition, winTarget, timeLimitMinutes, gracePeriodSeconds,
       livesRequired, maxTeamsPerCourt, startsAt, endsAt, venueId, notes,
     } = req.body;
@@ -211,6 +211,7 @@ router.post("/kotc/seasons", requireAdmin, async (req, res) => {
       genderBracket: genderBracket || "coed",
       ageBracket: ageBracket || "open",
       teamSize: teamSize || 4,
+      maxRosterSize: maxRosterSize ? Number(maxRosterSize) : null,
       winCondition: winCondition || "points",
       winTarget: winTarget || 7,
       timeLimitMinutes: timeLimitMinutes || 5,
@@ -236,7 +237,7 @@ router.patch("/kotc/seasons/:id", requireAdmin, async (req, res) => {
     const id = Number(req.params.id);
     const updates: Record<string, unknown> = {};
     const allowed = [
-      "name", "sport", "sportConfig", "genderBracket", "ageBracket", "teamSize",
+      "name", "sport", "sportConfig", "genderBracket", "ageBracket", "teamSize", "maxRosterSize",
       "winCondition", "winTarget", "timeLimitMinutes", "gracePeriodSeconds",
       "livesRequired", "maxTeamsPerCourt", "status", "startsAt", "endsAt",
       "venueId", "notes", "championTeamId", "lifePacks", "waitlistWindowMinutes",
@@ -766,6 +767,21 @@ router.post("/kotc/teams/:id/invite", requireAuth, async (req, res) => {
 
     if (existing) return void res.status(409).json({ error: "Player already on team" });
 
+    // Roster cap: count active + already-invited players (pending invites reserve a roster slot)
+    const maxRosterSize = (season as Record<string, unknown>).maxRosterSize as number | null;
+    if (maxRosterSize) {
+      const occupied = await db
+        .select()
+        .from(kotcTeamPlayersTable)
+        .where(and(
+          eq(kotcTeamPlayersTable.teamId, teamId),
+          inArray(kotcTeamPlayersTable.status, ["active", "invited"]),
+        ));
+      if (occupied.length >= maxRosterSize) {
+        return void res.status(400).json({ error: `Roster is full — this season caps teams at ${maxRosterSize} players` });
+      }
+    }
+
     const [invite] = await db.insert(kotcTeamPlayersTable).values({
       teamId,
       userId: invitee.id,
@@ -1174,7 +1190,8 @@ router.get("/kotc/seasons/:seasonId/rules", requireAuth, async (req, res) => {
 function getRulesCards(sport: string, season: Record<string, unknown>): Array<{
   title: string; body: string; icon: string;
 }> {
-  const teamSize = season.teamSize || 4;
+  const teamSize = Number(season.teamSize) || 4;
+  const maxRosterSize = season.maxRosterSize as number | null | undefined;
   const winTarget = season.winTarget || 7;
   const timeLimit = season.timeLimitMinutes || 5;
   const graceSeconds = season.gracePeriodSeconds || 60;
@@ -1184,6 +1201,10 @@ function getRulesCards(sport: string, season: Record<string, unknown>): Array<{
     ? `First team to score ${winTarget} points OR the team with more points when the ${timeLimit}-minute time limit expires wins. If time expires while tied, the team that has been on court longer loses.`
     : `First team to score ${winTarget} points wins — there is no time limit. Play continues until one team reaches ${winTarget}.`;
 
+  const teamSizeBody = maxRosterSize && maxRosterSize > teamSize
+    ? `Teams play ${teamSize}v${teamSize} on court. Rosters can have up to ${maxRosterSize} players total, so you can bring substitutes. If your on-court players aren't present, you can choose to play short-handed or skip your turn (skip = moved to back of queue, no life lost).`
+    : `Teams play ${teamSize}v${teamSize}. If your full roster isn't present, you can choose to play short-handed or skip your turn (skip = moved to back of queue, no life lost).`;
+
   return [
     {
       title: "Win Condition",
@@ -1192,7 +1213,7 @@ function getRulesCards(sport: string, season: Record<string, unknown>): Array<{
     },
     {
       title: "Team Size",
-      body: `Teams play ${teamSize}v${teamSize}. If your full roster isn't present, you can choose to play short-handed or skip your turn (skip = moved to back of queue, no life lost).`,
+      body: teamSizeBody,
       icon: "users",
     },
     {

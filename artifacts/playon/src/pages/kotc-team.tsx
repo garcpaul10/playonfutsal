@@ -259,6 +259,10 @@ export default function KotcTeamPage() {
     ? team?.players?.find((p: Record<string, unknown>) => Number(p.userId) === myProfile.userId)
     : undefined;
   const needsAcknowledgment = myMember && !myMember.rulesAcknowledgedAt;
+  const maxRosterSize: number | null = rules?.season?.maxRosterSize ?? null;
+  const rosterOccupiedCount = (team?.players ?? []).filter(
+    (p: Record<string, unknown>) => p.status === "active" || p.status === "invited"
+  ).length;
 
   const acknowledgeRules = useMutation({
     mutationFn: async () => {
@@ -566,8 +570,22 @@ export default function KotcTeamPage() {
 
           <TabsContent value="roster" className="space-y-3 mt-4">
             <div className="flex justify-between items-center">
-              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Team Roster</h2>
-              <Button size="sm" variant="outline" onClick={() => setShowInvite(true)} className="gap-1.5">
+              <div>
+                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Team Roster</h2>
+                {maxRosterSize && (
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {rosterOccupiedCount} / {maxRosterSize} roster spots used
+                  </p>
+                )}
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setShowInvite(true)}
+                className="gap-1.5"
+                disabled={!!maxRosterSize && rosterOccupiedCount >= maxRosterSize}
+                title={!!maxRosterSize && rosterOccupiedCount >= maxRosterSize ? `Roster is full (${maxRosterSize} max)` : undefined}
+              >
                 <UserPlus className="h-3.5 w-3.5" />
                 Invite Player
               </Button>
