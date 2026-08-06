@@ -151,6 +151,7 @@ function ActivityTab() {
           { label: "Explore programs", href: "/",             icon: Trophy,      color: "text-primary" },
           { label: "Registrations",      href: "/me?tab=activity", icon: CalendarDays, color: "text-blue-500" },
           { label: "Re-enroll",         href: "/me?tab=activity",   icon: RefreshCw,   color: "text-amber-500" },
+          { label: "My KotC Teams",     href: "/kotc/my-teams", icon: Crown,       color: "text-amber-500" },
           { label: "QR Code",           href: "/account?tab=qr", icon: CheckCircle2, color: "text-green-500" },
         ].map((a) => (
           <Link key={a.href} href={a.href}>
