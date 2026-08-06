@@ -477,6 +477,33 @@ router.patch("/kotc/battles/:id", requireAdmin, async (req, res) => {
   }
 });
 
+// Hard delete — only for battles with zero registrations (a pure mistake, nothing to refund).
+// Battles with real team registrations must use POST /kotc/battles/:id/cancel instead, which
+// properly carries lives forward for every registered team.
+router.delete("/kotc/battles/:id", requireAdmin, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+
+    const [battle] = await db.select().from(kotcBattlesTable).where(eq(kotcBattlesTable.id, id));
+    if (!battle) return void res.status(404).json({ error: "Battle not found" });
+
+    const registrations = await db
+      .select()
+      .from(kotcBattleRegistrationsTable)
+      .where(eq(kotcBattleRegistrationsTable.battleId, id));
+    if (registrations.length > 0) {
+      return void res.status(409).json({
+        error: "This battle has registered teams. Use Cancel instead so their lives carry forward correctly.",
+      });
+    }
+
+    await db.delete(kotcBattlesTable).where(eq(kotcBattlesTable.id, id));
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to delete battle" });
+  }
+});
+
 // ─── Battle Moderator Assignment ───────────────────────────────────────────────
 
 router.post("/kotc/battles/:id/mods", requireAdmin, async (req, res) => {

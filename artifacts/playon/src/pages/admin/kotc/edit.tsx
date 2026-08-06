@@ -2,7 +2,9 @@
  * KotC Season Edit Wizard — pre-populates all 6 steps from existing season data.
  *
  * Reuses all step components from new.tsx.
- * Existing battles are shown as read-only rows in Step 5; new cards can be added.
+ * Existing battles are listed in Step 5 for reference; edit or delete them from the
+ * season's Battles tab on the admin dashboard (admin/kings-of-the-court.tsx). New
+ * battle cards can be added here.
  * Save fires PATCH /api/kotc/seasons/:id then POSTs any new battle cards.
  */
 

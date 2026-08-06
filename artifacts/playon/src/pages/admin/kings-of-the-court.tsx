@@ -79,6 +79,11 @@ export default function AdminKingsOfTheCourt() {
   const [creditForm, setCreditForm] = useState({ amount: 3, reason: "" });
   const [deleteSeasonId, setDeleteSeasonId] = useState<number | null>(null);
   const [deleteConflict, setDeleteConflict] = useState<string | null>(null);
+  const [editBattleId, setEditBattleId] = useState<number | null>(null);
+  const [editBattleForm, setEditBattleForm] = useState({
+    scheduledAt: "", courtIds: [] as number[], maxTeamsPerCourt: "8", durationMinutes: "120", notes: "",
+  });
+  const [deleteBattleId, setDeleteBattleId] = useState<number | null>(null);
 
   const { data: seasons = [], isLoading: seasonsLoading } = useQuery({
     queryKey: ["kotc-seasons"],
@@ -97,6 +102,16 @@ export default function AdminKingsOfTheCourt() {
       const token = await getToken();
       const res = await authFetch(token, `${API}/kotc/seasons/${selectedSeasonId}/battles`);
       if (!res.ok) throw new Error("Failed to load battles");
+      return res.json();
+    },
+  });
+
+  const { data: courts = [] } = useQuery({
+    queryKey: ["courts"],
+    queryFn: async () => {
+      const token = await getToken();
+      const res = await authFetch(token, `${API}/courts`);
+      if (!res.ok) return [];
       return res.json();
     },
   });
@@ -293,6 +308,52 @@ export default function AdminKingsOfTheCourt() {
       toast({ title: "Battle cancelled — lives carried forward" });
     },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const editBattle = useMutation({
+    mutationFn: async () => {
+      if (editBattleId === null) throw new Error("No battle selected");
+      const token = await getToken();
+      const res = await authFetch(token, `${API}/kotc/battles/${editBattleId}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          scheduledAt: editBattleForm.scheduledAt || undefined,
+          courtIds: editBattleForm.courtIds.length > 0 ? editBattleForm.courtIds : undefined,
+          maxTeamsPerCourt: Number(editBattleForm.maxTeamsPerCourt),
+          durationMinutes: Number(editBattleForm.durationMinutes),
+          notes: editBattleForm.notes || null,
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["kotc-battles", selectedSeasonId] });
+      toast({ title: "Battle updated" });
+      setEditBattleId(null);
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const deleteBattle = useMutation({
+    mutationFn: async (battleId: number) => {
+      const token = await getToken();
+      const res = await authFetch(token, `${API}/kotc/battles/${battleId}`, { method: "DELETE" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as Record<string, string>).error ?? "Failed to delete battle");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["kotc-battles", selectedSeasonId] });
+      toast({ title: "Battle deleted" });
+      setDeleteBattleId(null);
+    },
+    onError: (e: Error) => {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+      setDeleteBattleId(null);
+    },
   });
 
   const promoteWaitlist = useMutation({
@@ -571,6 +632,26 @@ export default function AdminKingsOfTheCourt() {
                       </div>
                       <div className="flex items-center gap-2">
                         <StatusBadge status={String(b.status)} />
+                        {String(b.status) !== "completed" && String(b.status) !== "cancelled" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1 text-xs"
+                            onClick={() => {
+                              setEditBattleId(Number(b.id));
+                              setEditBattleForm({
+                                scheduledAt: b.scheduledAt ? new Date(String(b.scheduledAt)).toISOString().slice(0, 16) : "",
+                                courtIds: Array.isArray((b as any).courtIds) ? (b as any).courtIds : [],
+                                maxTeamsPerCourt: String(b.maxTeamsPerCourt ?? 8),
+                                durationMinutes: String(b.durationMinutes ?? 120),
+                                notes: String((b as any).notes ?? ""),
+                              });
+                            }}
+                          >
+                            <Edit2 className="h-3 w-3" />
+                            Edit
+                          </Button>
+                        )}
                         <Button
                           size="sm"
                           variant="outline"
@@ -617,6 +698,11 @@ export default function AdminKingsOfTheCourt() {
                         {String(b.status) !== "cancelled" && String(b.status) !== "completed" && (
                           <Button size="sm" variant="outline" className="gap-1 text-xs text-red-400 border-red-500/30" onClick={() => { if (confirm("Cancel battle? Lives will carry forward for all registered teams.")) cancelBattle.mutate(Number(b.id)); }} disabled={cancelBattle.isPending}>
                             <X className="h-3 w-3" />Cancel
+                          </Button>
+                        )}
+                        {(String(b.status) === "scheduled" || String(b.status) === "upcoming") && (
+                          <Button size="sm" variant="outline" className="gap-1 text-xs text-red-500 border-red-500/30" onClick={() => setDeleteBattleId(Number(b.id))} disabled={deleteBattle.isPending}>
+                            <Trash2 className="h-3 w-3" />Delete
                           </Button>
                         )}
                         <Button size="sm" variant="outline" className="gap-1 text-xs" onClick={() => setShowWaitlist(Number(b.id))}>
@@ -1309,6 +1395,115 @@ export default function AdminKingsOfTheCourt() {
               onClick={() => deleteSeasonId !== null && deleteSeason.mutate({ id: deleteSeasonId, force: !!deleteConflict })}
             >
               {deleteSeason.isPending ? "Deleting…" : deleteConflict ? "Delete Anyway" : "Delete Season"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={editBattleId !== null} onOpenChange={(open) => { if (!open) setEditBattleId(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Swords className="h-5 w-5 text-amber-400" />Edit Battle</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Date & Time</Label>
+              <Input
+                type="datetime-local"
+                className="mt-1"
+                value={editBattleForm.scheduledAt}
+                onChange={(e) => setEditBattleForm((f) => ({ ...f, scheduledAt: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label>Courts</Label>
+              {(() => {
+                const venueCourts = (courts as any[]).filter(
+                  (c) => String(c.venueId) === String((selectedSeason as any)?.venueId)
+                );
+                if (venueCourts.length === 0) {
+                  return <p className="text-xs text-muted-foreground mt-1 italic">No courts found for this season's venue.</p>;
+                }
+                return (
+                  <div className="flex flex-wrap gap-x-5 gap-y-2 mt-2">
+                    {venueCourts.map((court: any) => (
+                      <label key={court.id} className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={editBattleForm.courtIds.includes(court.id)}
+                          onChange={() => setEditBattleForm((f) => ({
+                            ...f,
+                            courtIds: f.courtIds.includes(court.id)
+                              ? f.courtIds.filter((id) => id !== court.id)
+                              : [...f.courtIds, court.id],
+                          }))}
+                          className="rounded"
+                        />
+                        {court.name}
+                      </label>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Max Teams Per Court</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  className="mt-1"
+                  value={editBattleForm.maxTeamsPerCourt}
+                  onChange={(e) => setEditBattleForm((f) => ({ ...f, maxTeamsPerCourt: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label>Duration (minutes)</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  className="mt-1"
+                  value={editBattleForm.durationMinutes}
+                  onChange={(e) => setEditBattleForm((f) => ({ ...f, durationMinutes: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div>
+              <Label>Notes</Label>
+              <Textarea
+                className="mt-1"
+                rows={3}
+                value={editBattleForm.notes}
+                onChange={(e) => setEditBattleForm((f) => ({ ...f, notes: e.target.value }))}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditBattleId(null)}>Cancel</Button>
+            <Button onClick={() => editBattle.mutate()} disabled={editBattle.isPending}>
+              {editBattle.isPending ? "Saving…" : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteBattleId !== null} onOpenChange={(open) => { if (!open) setDeleteBattleId(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-500"><Trash2 className="h-5 w-5" />Delete Battle</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            This permanently removes the battle. Only allowed when no teams have registered — if teams are
+            signed up, use Cancel instead so their lives carry forward correctly.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteBattleId(null)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              disabled={deleteBattle.isPending}
+              onClick={() => deleteBattleId !== null && deleteBattle.mutate(deleteBattleId)}
+            >
+              {deleteBattle.isPending ? "Deleting…" : "Delete Battle"}
             </Button>
           </DialogFooter>
         </DialogContent>

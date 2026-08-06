@@ -558,7 +558,7 @@ export function Step5Battles({
       {existingBattles && existingBattles.length > 0 && (
         <div className="space-y-2">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            Existing Battles (read-only)
+            Existing Battles
           </p>
           {existingBattles.map((b: any) => (
             <div
@@ -573,6 +573,9 @@ export function Step5Battles({
               <p className="text-xs text-muted-foreground mt-0.5">
                 {b.courtCount} court{b.courtCount !== 1 ? "s" : ""} ·{" "}
                 max {b.maxTeamsPerCourt} teams/court · {b.durationMinutes} min
+              </p>
+              <p className="text-[11px] text-muted-foreground/70 mt-1 italic">
+                Edit or delete this battle from the season's Battles tab on the dashboard.
               </p>
             </div>
           ))}
