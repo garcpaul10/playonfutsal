@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@clerk/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { getGetMyProfileQueryKey } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -257,7 +258,13 @@ export default function OnboardingPage() {
         throw new Error(errMsg);
       }
 
+      // Invalidate both this page's own cache key AND the generated client's key
+      // (["me"] vs getGetMyProfileQueryKey()'s ["/api/me"]) — dashboard.tsx and everything
+      // else reads via the generated useGetMyProfile() hook, so missing this left stale
+      // pre-onboarding profile data (empty roles) cached there, causing dashboard and
+      // onboarding to redirect-loop each other until React's render-depth guard kicked in.
       qc.invalidateQueries({ queryKey: ["me"] });
+      qc.invalidateQueries({ queryKey: getGetMyProfileQueryKey() });
       setLocation("/dashboard");
     } catch (err: any) {
       const msg =
@@ -283,7 +290,13 @@ export default function OnboardingPage() {
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body?.error ?? `Error ${res.status}`);
+      // Invalidate both this page's own cache key AND the generated client's key
+      // (["me"] vs getGetMyProfileQueryKey()'s ["/api/me"]) — dashboard.tsx and everything
+      // else reads via the generated useGetMyProfile() hook, so missing this left stale
+      // pre-onboarding profile data (empty roles) cached there, causing dashboard and
+      // onboarding to redirect-loop each other until React's render-depth guard kicked in.
       qc.invalidateQueries({ queryKey: ["me"] });
+      qc.invalidateQueries({ queryKey: getGetMyProfileQueryKey() });
       setRecoveryDone(true);
       setTimeout(() => setLocation("/dashboard"), 1200);
     } catch (err: any) {
