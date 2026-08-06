@@ -780,17 +780,27 @@ router.post("/kotc/teams/:id/invite", requireAuth, async (req, res) => {
       return void res.status(403).json({ error: "Only the captain can invite players" });
     }
 
-    const { inviteeUserId, inviteeEmail } = req.body;
-    if (!inviteeUserId && !inviteeEmail) {
-      return void res.status(400).json({ error: "inviteeUserId or inviteeEmail required" });
+    const { inviteeUserId, inviteeEmail, inviteePhone } = req.body;
+    if (!inviteeUserId && !inviteeEmail && !inviteePhone) {
+      return void res.status(400).json({ error: "inviteeUserId, inviteeEmail, or inviteePhone required" });
     }
 
-    // Lookup by ID or email
+    // Lookup by ID, email, or phone. Phone matching mirrors getOrCreateUser's re-link logic:
+    // Clerk stores E.164 (+17203751137), DB entries often omit the country code (7203751137),
+    // so compare on digits-only with and without a leading US country code.
     let invitee;
     if (inviteeUserId) {
       [invitee] = await db.select().from(usersTable).where(eq(usersTable.id, Number(inviteeUserId)));
-    } else {
+    } else if (inviteeEmail) {
       [invitee] = await db.select().from(usersTable).where(eq(usersTable.email, inviteeEmail));
+    } else {
+      const digits = String(inviteePhone).replace(/\D/g, "");
+      const candidates = new Set([digits, digits.replace(/^1(\d{10})$/, "$1")]);
+      const allWithPhone = await db.select().from(usersTable).where(sql`phone IS NOT NULL`);
+      invitee = allWithPhone.find((u) => {
+        const dbDigits = (u.phone ?? "").replace(/\D/g, "");
+        return candidates.has(dbDigits) || candidates.has(dbDigits.replace(/^1(\d{10})$/, "$1"));
+      });
     }
     if (!invitee) return void res.status(404).json({ error: "User not found" });
 

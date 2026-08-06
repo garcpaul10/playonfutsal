@@ -112,6 +112,8 @@ export default function KotcTeamPage() {
   const [showQR, setShowQR] = useState(false);
   const [showRegister, setShowRegister] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
+  const [invitePhone, setInvitePhone] = useState("");
+  const [inviteMode, setInviteMode] = useState<"email" | "phone">("email");
   const [selectedBattleId, setSelectedBattleId] = useState<number | null>(null);
   const [showDissolveDlg, setShowDissolveDlg] = useState(false);
   const [showRecap, setShowRecap] = useState(false);
@@ -283,7 +285,11 @@ export default function KotcTeamPage() {
       const token = await getToken();
       const res = await authFetch(token, `${API}/kotc/teams/${teamId}/invite`, {
         method: "POST",
-        body: JSON.stringify({ inviteeEmail: inviteEmail.trim().toLowerCase() }),
+        body: JSON.stringify(
+          inviteMode === "email"
+            ? { inviteeEmail: inviteEmail.trim().toLowerCase() }
+            : { inviteePhone: invitePhone.trim() }
+        ),
       });
       if (!res.ok) {
         const err = await res.json();
@@ -296,6 +302,7 @@ export default function KotcTeamPage() {
       toast({ title: "Player invited!", description: "They'll see the invite next time they open the app." });
       setShowInvite(false);
       setInviteEmail("");
+      setInvitePhone("");
     },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
@@ -952,23 +959,59 @@ export default function KotcTeamPage() {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
-            <div>
-              <Label>Player Email</Label>
-              <Input
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                placeholder="player@example.com"
-                className="mt-1"
-                type="email"
-              />
-              <p className="text-xs text-muted-foreground mt-1.5">
-                They must already have a PlayOn account. They'll see the invite next time they open their teams page.
-              </p>
+            <div className="flex gap-1.5">
+              <Button
+                type="button"
+                size="sm"
+                variant={inviteMode === "email" ? "default" : "outline"}
+                className="flex-1"
+                onClick={() => setInviteMode("email")}
+              >
+                Email
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={inviteMode === "phone" ? "default" : "outline"}
+                className="flex-1"
+                onClick={() => setInviteMode("phone")}
+              >
+                Phone
+              </Button>
             </div>
+            {inviteMode === "email" ? (
+              <div>
+                <Label>Player Email</Label>
+                <Input
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  placeholder="player@example.com"
+                  className="mt-1"
+                  type="email"
+                />
+              </div>
+            ) : (
+              <div>
+                <Label>Player Phone Number</Label>
+                <Input
+                  value={invitePhone}
+                  onChange={(e) => setInvitePhone(e.target.value)}
+                  placeholder="(555) 123-4567"
+                  className="mt-1"
+                  type="tel"
+                />
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground">
+              They must already have a PlayOn account under this {inviteMode}. They'll see the invite next time they open their teams page.
+            </p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowInvite(false)}>Cancel</Button>
-            <Button onClick={() => invitePlayer.mutate()} disabled={!inviteEmail.trim() || invitePlayer.isPending}>
+            <Button
+              onClick={() => invitePlayer.mutate()}
+              disabled={(inviteMode === "email" ? !inviteEmail.trim() : !invitePhone.trim()) || invitePlayer.isPending}
+            >
               {invitePlayer.isPending ? "Inviting..." : "Send Invite"}
             </Button>
           </DialogFooter>
