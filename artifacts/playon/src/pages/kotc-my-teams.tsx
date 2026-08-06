@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Crown, Plus, Users, ChevronRight, Trophy, Heart, Swords, Mail, Check, X } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { useWaiverGate } from "@/components/waiver-modal";
 
 const API = (import.meta.env.VITE_API_URL ?? "https://workspaceapi-server-production-3488.up.railway.app").replace(/\/$/, "") + "/api";
 
@@ -47,6 +48,7 @@ export default function KotcMyTeamsPage() {
   const [selectedSeasonId, setSelectedSeasonId] = useState<string>("");
   const [teamName, setTeamName] = useState("");
   const [teamColor, setTeamColor] = useState(TEAM_COLORS[0].value);
+  const { ensureProfile, WaiverModalElement } = useWaiverGate();
 
   const { data: seasons = [], isLoading: seasonsLoading } = useQuery({
     queryKey: ["kotc-seasons-my"],
@@ -153,10 +155,10 @@ export default function KotcMyTeamsPage() {
             {activeSeason && (
               <Button
                 size="sm"
-                onClick={() => {
+                onClick={() => ensureProfile(() => {
                   setSelectedSeasonId(String(activeSeason.id));
                   setShowCreate(true);
-                }}
+                })}
                 className="bg-amber-500 hover:bg-amber-600 text-black font-bold"
               >
                 <Plus className="h-4 w-4 mr-1" />
@@ -214,7 +216,7 @@ export default function KotcMyTeamsPage() {
                     size="sm"
                     className="h-8 px-3 gap-1 bg-green-600 hover:bg-green-700 text-white"
                     disabled={respondInvite.isPending}
-                    onClick={() => respondInvite.mutate({ id: inv.id, action: "accept" })}
+                    onClick={() => ensureProfile(() => respondInvite.mutate({ id: inv.id, action: "accept" }))}
                   >
                     <Check className="h-3.5 w-3.5" />
                     Accept
@@ -242,10 +244,10 @@ export default function KotcMyTeamsPage() {
               </p>
               {activeSeason && (
                 <Button
-                  onClick={() => {
+                  onClick={() => ensureProfile(() => {
                     setSelectedSeasonId(String(activeSeason.id));
                     setShowCreate(true);
-                  }}
+                  })}
                   className="mt-2 bg-amber-500 hover:bg-amber-600 text-black font-bold"
                 >
                   <Plus className="h-4 w-4 mr-1" />
@@ -358,6 +360,8 @@ export default function KotcMyTeamsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {WaiverModalElement}
     </Layout>
   );
 }
