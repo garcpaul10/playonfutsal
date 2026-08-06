@@ -1262,15 +1262,28 @@ export default function AdminKingsOfTheCourt() {
             </div>
             <div>
               <Label>Court Number</Label>
-              <Select value={String(modForm.courtNumber)} onValueChange={(v) => setModForm((f) => ({ ...f, courtNumber: Number(v) }))}>
-                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1">Court 1</SelectItem>
-                  <SelectItem value="2">Court 2</SelectItem>
-                  <SelectItem value="3">Court 3</SelectItem>
-                  <SelectItem value="4">Court 4</SelectItem>
-                </SelectContent>
-              </Select>
+              {(() => {
+                const modBattle = battles.find((b: Record<string, unknown>) => Number(b.id) === showModDialog);
+                const courtIds: number[] = Array.isArray((modBattle as any)?.courtIds) ? (modBattle as any).courtIds : [];
+                const courtCount = Number(modBattle?.courtCount) || courtIds.length || 1;
+                const battleCourts = courtIds.length > 0
+                  ? courtIds.map((id, idx) => {
+                      const court = (courts as any[]).find((c) => Number(c.id) === Number(id));
+                      return { number: idx + 1, label: court?.name ?? `Court ${idx + 1}` };
+                    })
+                  : Array.from({ length: courtCount }, (_, idx) => ({ number: idx + 1, label: `Court ${idx + 1}` }));
+                return (
+                  <Select value={String(modForm.courtNumber)} onValueChange={(v) => setModForm((f) => ({ ...f, courtNumber: Number(v) }))}>
+                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {battleCourts.map((c) => (
+                        <SelectItem key={c.number} value={String(c.number)}>{c.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                );
+              })()}
+              <p className="text-xs text-muted-foreground mt-1">Courts assigned to this battle.</p>
             </div>
           </div>
           <DialogFooter className="mt-2">
