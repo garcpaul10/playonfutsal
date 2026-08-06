@@ -111,6 +111,7 @@ async function getOrCreateUser(clerkId: string, email?: string, phone?: string):
       const [created] = await db.insert(usersTable).values({
         clerkId,
         email: email ?? `${clerkId}@playon.local`,
+        phone: phone ?? null,
         playonId,
         qrCode: `playon:player:${clerkId}`,
       } as any).onConflictDoNothing({ target: usersTable.clerkId }).returning();
@@ -227,6 +228,23 @@ router.get("/me", requireAuth, async (req: any, res): Promise<void> => {
       }
     } catch (err) {
       logger.warn({ err }, "[GET /me] Clerk profile backfill failed — proceeding with existing data");
+    }
+  }
+
+  // Backfill phone from Clerk if it was never saved — runs on every GET /me (not gated on
+  // firstName) so already-onboarded phone-signup users get fixed retroactively, not just new
+  // signups. Previously getOrCreateUser's insert never stored phone at all, so anyone who
+  // signed up via phone had a permanently null users.phone (nothing could ever find them by
+  // phone — e.g. KotC team invites).
+  if (!user.phone && clerkPhone) {
+    try {
+      const [updated] = await db.update(usersTable)
+        .set({ phone: clerkPhone })
+        .where(eq(usersTable.clerkId, clerkUserId))
+        .returning();
+      if (updated) user = updated;
+    } catch (err) {
+      logger.warn({ err }, "[GET /me] Phone backfill failed — proceeding with existing data");
     }
   }
 
