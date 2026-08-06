@@ -327,7 +327,31 @@ router.get("/kotc/seasons/:seasonId/battles", async (req, res) => {
       .from(kotcBattlesTable)
       .where(eq(kotcBattlesTable.seasonId, seasonId))
       .orderBy(asc(kotcBattlesTable.scheduledAt));
-    res.json(battles);
+
+    const battleIds = battles.map((b) => b.id);
+    const mods = battleIds.length > 0
+      ? await db
+          .select({
+            id: kotcBattleModsTable.id,
+            battleId: kotcBattleModsTable.battleId,
+            courtNumber: kotcBattleModsTable.courtNumber,
+            userId: kotcBattleModsTable.userId,
+            firstName: usersTable.firstName,
+            lastName: usersTable.lastName,
+            email: usersTable.email,
+          })
+          .from(kotcBattleModsTable)
+          .innerJoin(usersTable, eq(usersTable.id, kotcBattleModsTable.userId))
+          .where(inArray(kotcBattleModsTable.battleId, battleIds))
+      : [];
+    const modsByBattle = new Map<number, typeof mods>();
+    for (const mod of mods) {
+      const list = modsByBattle.get(mod.battleId) ?? [];
+      list.push(mod);
+      modsByBattle.set(mod.battleId, list);
+    }
+
+    res.json(battles.map((b) => ({ ...b, mods: modsByBattle.get(b.id) ?? [] })));
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch battles" });
   }

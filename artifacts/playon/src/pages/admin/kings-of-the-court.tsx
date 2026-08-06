@@ -639,6 +639,16 @@ export default function AdminKingsOfTheCourt() {
                             max {Number(b.maxTeamsPerCourt)} teams/court ·{" "}
                             {Number(b.durationMinutes)} min
                           </p>
+                          {Array.isArray((b as any).mods) && (b as any).mods.length > 0 && (
+                            <p className="text-xs text-amber-600 flex items-center gap-1 mt-0.5">
+                              <UserCheck className="h-3 w-3" />
+                              {(b as any).mods
+                                .map((m: Record<string, unknown>) =>
+                                  `${[m.firstName, m.lastName].filter(Boolean).join(" ") || String(m.email)} (Court ${m.courtNumber})`
+                                )
+                                .join(", ")}
+                            </p>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
