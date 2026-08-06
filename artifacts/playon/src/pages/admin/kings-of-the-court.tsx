@@ -116,6 +116,17 @@ export default function AdminKingsOfTheCourt() {
     },
   });
 
+  const { data: moderatorOptions = [], isLoading: moderatorOptionsLoading } = useQuery({
+    queryKey: ["kotc-moderator-options"],
+    enabled: showModDialog !== null,
+    queryFn: async () => {
+      const token = await getToken();
+      const res = await authFetch(token, `${API}/kotc/moderator-options`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
   const { data: teams = [], isLoading: teamsLoading } = useQuery({
     queryKey: ["kotc-teams", selectedSeasonId],
     enabled: !!selectedSeasonId,
@@ -1230,15 +1241,24 @@ export default function AdminKingsOfTheCourt() {
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>User ID</Label>
-              <Input
-                type="number"
-                value={modForm.userId}
-                onChange={(e) => setModForm((f) => ({ ...f, userId: e.target.value }))}
-                placeholder="DB user ID of the moderator"
-                className="mt-1"
-              />
-              <p className="text-xs text-muted-foreground mt-1">Enter the moderator's database user ID. Find it in the Users admin page.</p>
+              <Label>Moderator</Label>
+              <Select value={modForm.userId} onValueChange={(v) => setModForm((f) => ({ ...f, userId: v }))}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder={moderatorOptionsLoading ? "Loading…" : "Select a staff member"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {moderatorOptions.length === 0 && !moderatorOptionsLoading && (
+                    <div className="px-2 py-1.5 text-xs text-muted-foreground">No eligible staff found</div>
+                  )}
+                  {moderatorOptions.map((u: Record<string, unknown>) => (
+                    <SelectItem key={String(u.id)} value={String(u.id)}>
+                      {`${u.firstName ?? ""} ${u.lastName ?? ""}`.trim() || String(u.email)}
+                      <span className="text-muted-foreground"> · {String(u.role)}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">Admins, staff, scorekeepers, and active referees are eligible.</p>
             </div>
             <div>
               <Label>Court Number</Label>

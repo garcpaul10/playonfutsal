@@ -6,7 +6,7 @@ import {
   kotcBattleRegistrationsTable, kotcRotationQueuesTable,
   kotcGameCardsTable, kotcLifeLedgerTable,
   kotcDramaRulesTable, kotcWaitlistTable, kotcPendingPurchasesTable,
-  usersTable, guardiansTable, qrCodesTable, paymentsTable,
+  usersTable, guardiansTable, qrCodesTable, paymentsTable, staffProfilesTable,
 } from "@workspace/db";
 import { eq, and, asc, desc, sql, inArray, or } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
@@ -505,6 +505,34 @@ router.delete("/kotc/battles/:id", requireAdmin, async (req, res) => {
 });
 
 // ─── Battle Moderator Assignment ───────────────────────────────────────────────
+
+// Eligible moderator candidates: admins, staff, scorekeepers, and anyone with an
+// active staff profile (e.g. referees) — mirrors requireStaffOrRef's eligibility rule.
+router.get("/kotc/moderator-options", requireAdmin, async (_req, res) => {
+  try {
+    const roleEligible = await db
+      .select({ id: usersTable.id, firstName: usersTable.firstName, lastName: usersTable.lastName, email: usersTable.email, role: usersTable.role })
+      .from(usersTable)
+      .where(inArray(usersTable.role, ["admin", "staff", "scorekeeper"]));
+
+    const activeProfiles = await db
+      .select({ id: usersTable.id, firstName: usersTable.firstName, lastName: usersTable.lastName, email: usersTable.email, role: usersTable.role })
+      .from(staffProfilesTable)
+      .innerJoin(usersTable, eq(usersTable.id, staffProfilesTable.userId))
+      .where(eq(staffProfilesTable.isActive, true));
+
+    const byId = new Map<number, typeof roleEligible[number]>();
+    for (const u of [...roleEligible, ...activeProfiles]) byId.set(u.id, u);
+
+    const options = [...byId.values()].sort((a, b) =>
+      `${a.firstName ?? ""} ${a.lastName ?? ""}`.localeCompare(`${b.firstName ?? ""} ${b.lastName ?? ""}`)
+    );
+
+    res.json(options);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch moderator options" });
+  }
+});
 
 router.post("/kotc/battles/:id/mods", requireAdmin, async (req, res) => {
   try {
