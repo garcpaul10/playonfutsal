@@ -124,9 +124,14 @@ function ageMatchesBracket(dateOfBirth: string | null, ageBracket: string): bool
 
 router.get("/kotc/seasons", requireAuth, async (req, res) => {
   try {
+    const { userId: clerkId } = getAuth(req);
+    const user = clerkId ? await getDbUser(clerkId) : null;
+    const isAdmin = user?.role === "admin";
+
     const seasons = await db
       .select()
       .from(kotcSeasonsTable)
+      .where(isAdmin ? undefined : eq(kotcSeasonsTable.isPublished, true))
       .orderBy(desc(kotcSeasonsTable.createdAt));
     res.json(seasons);
   } catch (err) {
