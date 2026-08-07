@@ -147,6 +147,18 @@ export default function KotcTeamPage() {
     },
   });
 
+  const { data: reigningChampions = [] } = useQuery({
+    queryKey: ["kotc-reigning-champions", team?.seasonId],
+    enabled: !!team?.seasonId,
+    queryFn: async () => {
+      const token = await getToken();
+      const res = await authFetch(token, `${API}/kotc/seasons/${team.seasonId}/reigning-champions`);
+      if (!res.ok) return [];
+      return res.json() as Promise<Array<{ courtNumber: number; teamId: number; teamName: string | null }>>;
+    },
+  });
+  const defendingCourts = reigningChampions.filter((c) => c.teamId === team?.id).map((c) => c.courtNumber);
+
   const registerSeason = useMutation({
     mutationFn: async (seasonId: number) => {
       const token = await getToken();
@@ -568,6 +580,12 @@ export default function KotcTeamPage() {
                 {team.isReigning && (
                   <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30">
                     <Crown className="h-2.5 w-2.5" />REIGNING KING
+                  </span>
+                )}
+                {defendingCourts.length > 0 && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded bg-yellow-500/20 text-yellow-500 border border-yellow-500/30">
+                    <Crown className="h-2.5 w-2.5" />
+                    UNDEFEATED — DEFENDING COURT{defendingCourts.length > 1 ? "S" : ""} {defendingCourts.join(", ")}
                   </span>
                 )}
               </div>

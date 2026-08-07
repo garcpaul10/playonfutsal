@@ -38,6 +38,7 @@ interface QueueEntry {
   teamColor: string | null;
   livesBalance: number;
   graceExpiresAt: string | null;
+  isDefendingChampion: boolean;
 }
 
 function GraceTimer({ expiresAt }: { expiresAt: string }) {
@@ -80,7 +81,10 @@ function TeamCard({ entry, rank, isOnCourt, onNoShow }: { entry: QueueEntry; ran
           style={{ backgroundColor: (entry.teamColor || "#444") + "40", borderColor: (entry.teamColor || "#888") + "80" }}
         />
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-sm text-foreground truncate">{entry.teamName}</p>
+          <p className="font-semibold text-sm text-foreground truncate">
+            {entry.isDefendingChampion && <span title="Defending champion">👑 </span>}
+            {entry.teamName}
+          </p>
           <div className="flex items-center gap-2 mt-0.5">
             {entry.status === "on_court" && (
               <span className="text-[10px] font-bold text-green-400 flex items-center gap-0.5">

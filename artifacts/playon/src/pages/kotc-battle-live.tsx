@@ -103,6 +103,7 @@ interface QueueEntry {
   teamName: string | null;
   teamColor: string | null;
   livesBalance: number | null;
+  isDefendingChampion: boolean;
 }
 
 interface ActiveCard {
@@ -251,6 +252,7 @@ function CourtCard({
                     {i + 2}.
                   </span>
                   <TeamDot color={team.teamColor} />
+                  {team.isDefendingChampion && <span title="Defending champion">👑</span>}
                   <span className={`text-sm flex-1 truncate ${team.teamId === myTeamId ? "font-semibold text-foreground" : "text-foreground/80"}`}>
                     {team.teamName ?? "—"}
                   </span>
@@ -275,6 +277,7 @@ function TeamRow({ team, highlight }: { team: QueueEntry; highlight: boolean }) 
   return (
     <div className={`flex items-center gap-2.5 ${highlight ? "font-semibold" : ""}`}>
       <TeamDot color={team.teamColor} />
+      {team.isDefendingChampion && <span title="Defending champion">👑</span>}
       <span className={`text-sm flex-1 truncate ${highlight ? "text-foreground" : "text-foreground/90"}`}>
         {team.teamName ?? "—"}
         {highlight && <span className="ml-1 text-xs text-blue-500">(You)</span>}

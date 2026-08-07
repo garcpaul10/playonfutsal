@@ -9,6 +9,7 @@ export const kotcRotationQueuesTable = pgTable("kotc_rotation_queues", {
   courtNumber: integer("court_number").notNull().default(1),
   position: integer("position").notNull(),
   status: text("status").notNull().default("queued"),
+  isDefendingChampion: boolean("is_defending_champion").notNull().default(false),
   graceStartedAt: timestamp("grace_started_at", { withTimezone: true }),
   graceExpiresAt: timestamp("grace_expires_at", { withTimezone: true }),
   bowedOutAt: timestamp("bowed_out_at", { withTimezone: true }),

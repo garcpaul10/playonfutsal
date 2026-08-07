@@ -1605,6 +1605,7 @@ router.get("/kotc/battles/:battleId/queue", requireAuth, async (req, res) => {
         position: kotcRotationQueuesTable.position,
         status: kotcRotationQueuesTable.status,
         graceExpiresAt: kotcRotationQueuesTable.graceExpiresAt,
+        isDefendingChampion: kotcRotationQueuesTable.isDefendingChampion,
         teamName: kotcTeamsTable.name,
         teamColor: kotcTeamsTable.color,
         livesBalance: kotcTeamSeasonsTable.livesBalance,
@@ -1623,6 +1624,33 @@ router.get("/kotc/battles/:battleId/queue", requireAuth, async (req, res) => {
     res.status(500).json({ error: "Failed to fetch queue" });
   }
 });
+
+// Per court, the reigning "Kings" from the most recent PRIOR battle in this season —
+// whichever team was still on_court (won and never lost) when that battle wrapped up.
+// Only looks at the single most recent other battle, so the crown only carries into
+// the very next battle — skip one and it's gone.
+async function getReigningChampionsByCourt(seasonId: number, currentBattleId: number, currentScheduledAt: Date): Promise<Map<number, number>> {
+  const champions = new Map<number, number>();
+  const [prevBattle] = await db
+    .select()
+    .from(kotcBattlesTable)
+    .where(and(
+      eq(kotcBattlesTable.seasonId, seasonId),
+      sql`${kotcBattlesTable.id} != ${currentBattleId}`,
+      sql`${kotcBattlesTable.scheduledAt} < ${currentScheduledAt}`,
+      sql`${kotcBattlesTable.startedAt} IS NOT NULL`,
+    ))
+    .orderBy(desc(kotcBattlesTable.scheduledAt))
+    .limit(1);
+  if (!prevBattle) return champions;
+
+  const onCourtRows = await db
+    .select({ courtNumber: kotcRotationQueuesTable.courtNumber, teamId: kotcRotationQueuesTable.teamId })
+    .from(kotcRotationQueuesTable)
+    .where(and(eq(kotcRotationQueuesTable.battleId, prevBattle.id), eq(kotcRotationQueuesTable.status, "on_court")));
+  for (const row of onCourtRows) champions.set(row.courtNumber, row.teamId);
+  return champions;
+}
 
 router.post("/kotc/battles/:battleId/start", requireAuth, async (req, res) => {
   try {
@@ -1660,15 +1688,24 @@ router.post("/kotc/battles/:battleId/start", requireAuth, async (req, res) => {
     // Clear any stale queue entries (safety net for re-draft scenarios)
     await db.delete(kotcRotationQueuesTable).where(eq(kotcRotationQueuesTable.battleId, battleId));
 
+    const reigningChampsByCourt = await getReigningChampionsByCourt(battle.seasonId, battleId, battle.scheduledAt);
+
     for (let courtNum = 1; courtNum <= (battle.courtCount || 1); courtNum++) {
       const courtRegs = registrations.filter((r) => r.courtNumber === courtNum);
-      for (let i = 0; i < courtRegs.length; i++) {
+      const championTeamId = reigningChampsByCourt.get(courtNum);
+      // Defending champs jump straight to the front of the line — everyone else keeps
+      // their registration order behind them.
+      const ordered = championTeamId
+        ? [...courtRegs].sort((a, b) => (a.teamId === championTeamId ? -1 : b.teamId === championTeamId ? 1 : 0))
+        : courtRegs;
+      for (let i = 0; i < ordered.length; i++) {
         await db.insert(kotcRotationQueuesTable).values({
           battleId,
-          teamId: courtRegs[i].teamId,
+          teamId: ordered[i].teamId,
           courtNumber: courtNum,
           position: i + 1,
           status: "queued",
+          isDefendingChampion: ordered[i].teamId === championTeamId,
         });
       }
     }
@@ -2406,6 +2443,43 @@ router.post("/kotc/teams/:teamId/credit-lives", requireAdmin, async (req, res) =
     res.json({ ok: true, newBalance, entry });
   } catch (err) {
     res.status(500).json({ error: "Failed to credit lives" });
+  }
+});
+
+// Currently-reigning champs per court — whoever is on_court (undefeated) in the most
+// recently started battle for this season. Lets the UI show a crown even before the
+// next battle exists, not just once someone's actually seeded at position 1.
+router.get("/kotc/seasons/:seasonId/reigning-champions", requireAuth, async (req, res) => {
+  try {
+    const seasonId = Number(req.params.seasonId);
+    const [latestBattle] = await db
+      .select()
+      .from(kotcBattlesTable)
+      .where(and(eq(kotcBattlesTable.seasonId, seasonId), sql`${kotcBattlesTable.startedAt} IS NOT NULL`))
+      .orderBy(desc(kotcBattlesTable.scheduledAt))
+      .limit(1);
+    if (!latestBattle) return void res.json([]);
+
+    const onCourtRows = await db
+      .select({ courtNumber: kotcRotationQueuesTable.courtNumber, teamId: kotcRotationQueuesTable.teamId })
+      .from(kotcRotationQueuesTable)
+      .where(and(eq(kotcRotationQueuesTable.battleId, latestBattle.id), eq(kotcRotationQueuesTable.status, "on_court")));
+    if (onCourtRows.length === 0) return void res.json([]);
+
+    const teams = await db.select({ id: kotcTeamsTable.id, name: kotcTeamsTable.name, color: kotcTeamsTable.color })
+      .from(kotcTeamsTable)
+      .where(inArray(kotcTeamsTable.id, onCourtRows.map((r) => r.teamId)));
+
+    res.json(onCourtRows.map((r) => ({
+      courtNumber: r.courtNumber,
+      teamId: r.teamId,
+      teamName: teams.find((t) => t.id === r.teamId)?.name ?? null,
+      teamColor: teams.find((t) => t.id === r.teamId)?.color ?? null,
+      battleId: latestBattle.id,
+      battleScheduledAt: latestBattle.scheduledAt,
+    })));
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch reigning champions" });
   }
 });
 
@@ -4157,6 +4231,7 @@ router.get("/kotc/battles/:battleId/live-state", requireAuth, async (req, res) =
         position: kotcRotationQueuesTable.position,
         status: kotcRotationQueuesTable.status,
         graceExpiresAt: kotcRotationQueuesTable.graceExpiresAt,
+        isDefendingChampion: kotcRotationQueuesTable.isDefendingChampion,
         teamName: kotcTeamsTable.name,
         teamColor: kotcTeamsTable.color,
         livesBalance: kotcTeamSeasonsTable.livesBalance,
