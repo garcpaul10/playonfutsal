@@ -391,6 +391,7 @@ export default function KotcTeamPage() {
       return res.json();
     },
     onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["kotc-registrations", teamId] });
       toast({ title: "Registered for battle!" });
       setShowRegister(false);
     },
@@ -692,6 +693,29 @@ export default function KotcTeamPage() {
                         {String(b.status)}
                       </span>
                     </div>
+                    {String(b.status) !== "active" && (() => {
+                      const reg = registrations.find((r) => r.battleId === Number(b.id));
+                      if (!reg) return null;
+                      return (
+                        <div className="flex items-center justify-between gap-2 pt-1 border-t border-border">
+                          <span className="text-[11px] text-green-400 flex items-center gap-1 font-medium">
+                            <CheckCircle2 className="h-3 w-3" />Registered
+                          </span>
+                          {String(b.status) !== "completed" && String(b.status) !== "cancelled" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="gap-1.5 text-xs text-red-400 border-red-500/30 hover:bg-red-500/10"
+                              disabled={bowOut.isPending}
+                              onClick={() => { if (confirm("Voluntarily leave this battle? Lives will not be refunded.")) bowOut.mutate(Number(b.id)); }}
+                            >
+                              <LogOut className="h-3 w-3" />
+                              Bow Out
+                            </Button>
+                          )}
+                        </div>
+                      );
+                    })()}
                     {String(b.status) === "active" && (() => {
                       const reg = registrations.find((r) => r.battleId === Number(b.id));
                       const actingCap = reg?.actingCaptainUserId
