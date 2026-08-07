@@ -275,6 +275,9 @@ export default function KotcMyTeamsPage() {
                     />
                     <div className="flex-1 min-w-0">
                       <p className="font-bold text-foreground truncate">{String(team.name)}</p>
+                      {team.seasonName != null && (
+                        <p className="text-xs text-muted-foreground truncate">{String(team.seasonName)}</p>
+                      )}
                       <div className="flex items-center gap-3 mt-0.5">
                         <span className="text-xs text-muted-foreground flex items-center gap-1">
                           <Users className="h-3 w-3" />

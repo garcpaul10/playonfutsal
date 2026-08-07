@@ -710,6 +710,7 @@ async function isUserOnTeamInSeason(userId: number, seasonId: number, excludeTea
       eq(kotcTeamPlayersTable.userId, userId),
       eq(kotcTeamsTable.seasonId, seasonId),
       inArray(kotcTeamPlayersTable.status, ["active", "invited"]),
+      sql`${kotcTeamsTable.status} IS DISTINCT FROM 'dissolved'`,
     ));
   return rows.some((r) => r.teamId !== excludeTeamId);
 }
@@ -1076,12 +1077,18 @@ router.get("/kotc/my-teams", requireAuth, async (req, res) => {
         or(inArray(kotcGameCardsTable.team1Id, teamIds), inArray(kotcGameCardsTable.team2Id, teamIds)),
       ));
 
+    const seasonIds = [...new Set(teams.map((t) => t.seasonId))];
+    const seasons = seasonIds.length > 0
+      ? await db.select({ id: kotcSeasonsTable.id, name: kotcSeasonsTable.name }).from(kotcSeasonsTable).where(inArray(kotcSeasonsTable.id, seasonIds))
+      : [];
+
     res.json(teams.map((t) => ({
       ...t,
       myRole: memberships.find((m) => m.teamId === t.id)?.role ?? "player",
       playerCount: allPlayers.filter((p) => p.teamId === t.id).length,
       wins: gameCards.filter((c) => c.winnerTeamId === t.id).length,
       losses: gameCards.filter((c) => c.loserTeamId === t.id).length,
+      seasonName: seasons.find((s) => s.id === t.seasonId)?.name ?? null,
     })));
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch teams" });
