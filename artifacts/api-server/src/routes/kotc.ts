@@ -1359,6 +1359,36 @@ router.post("/kotc/battles/:battleId/register", requireAuth, async (req, res) =>
       });
     }
 
+    // One court at a time: block registering for a battle that overlaps in time with
+    // another battle (any season/division) this team is already registered for.
+    // A team's roster represents one squad — it can't be defending two courts at once.
+    const battleStart = new Date(battle.scheduledAt).getTime();
+    const battleEnd = battleStart + (battle.durationMinutes || 120) * 60 * 1000;
+    const otherRegs = await db
+      .select({
+        battleId: kotcBattleRegistrationsTable.battleId,
+        scheduledAt: kotcBattlesTable.scheduledAt,
+        durationMinutes: kotcBattlesTable.durationMinutes,
+      })
+      .from(kotcBattleRegistrationsTable)
+      .innerJoin(kotcBattlesTable, eq(kotcBattlesTable.id, kotcBattleRegistrationsTable.battleId))
+      .where(and(
+        eq(kotcBattleRegistrationsTable.teamId, Number(teamId)),
+        eq(kotcBattleRegistrationsTable.status, "registered"),
+        sql`${kotcBattleRegistrationsTable.battleId} != ${battleId}`,
+        sql`${kotcBattlesTable.status} != 'cancelled'`,
+      ));
+    const conflict = otherRegs.find((r) => {
+      const otherStart = new Date(r.scheduledAt).getTime();
+      const otherEnd = otherStart + (r.durationMinutes || 120) * 60 * 1000;
+      return otherStart < battleEnd && otherEnd > battleStart;
+    });
+    if (conflict) {
+      return void res.status(409).json({
+        error: `This team is already registered for another battle at the same time (${new Date(conflict.scheduledAt).toLocaleString()}). A team can only play one court at a time.`,
+      });
+    }
+
     // Court bounds validation: courtNumber must be within 1..battle.courtCount
     const courtNum = courtNumber ? Number(courtNumber) : 1;
     if (courtNum < 1 || courtNum > (battle.courtCount || 1)) {
