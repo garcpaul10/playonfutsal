@@ -80,6 +80,7 @@ export * from "./dropinPoolPresets";
 export * from "./kotcSeasons";
 export * from "./kotcBattles";
 export * from "./kotcTeams";
+export * from "./kotcTeamSeasons";
 export * from "./kotcBattleRegistrations";
 export * from "./kotcRotationQueues";
 export * from "./kotcGameCards";

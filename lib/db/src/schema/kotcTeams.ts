@@ -1,21 +1,15 @@
 import { pgTable, serial, integer, text, boolean, timestamp } from "drizzle-orm/pg-core";
-import { kotcSeasonsTable } from "./kotcSeasons";
 
+// A team is a persistent identity (captain, name, roster) that can register for
+// multiple seasons over time. Season-specific state (lives, purchases, dissolve
+// status, reigning-king flag) lives on kotcTeamSeasonsTable — see kotcTeamSeasons.ts.
 export const kotcTeamsTable = pgTable("kotc_teams", {
   id: serial("id").primaryKey(),
-  seasonId: integer("season_id").notNull().references(() => kotcSeasonsTable.id, { onDelete: "cascade" }),
   captainUserId: integer("captain_user_id").notNull(),
   name: text("name").notNull(),
   color: text("color"),
   logoUrl: text("logo_url"),
-  livesBalance: integer("lives_balance").notNull().default(0),
-  livesConsumed: integer("lives_consumed").notNull().default(0),
-  status: text("status").notNull().default("active"),
   qrCode: text("qr_code").notNull().unique(),
-  isReigning: boolean("is_reigning").notNull().default(false),
-  firstPurchaseAt: timestamp("first_purchase_at", { withTimezone: true }),
-  guardianSpendingCapCents: integer("guardian_spending_cap_cents"),
-  totalPurchasedCents: integer("total_purchased_cents").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

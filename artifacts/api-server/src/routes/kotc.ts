@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import {
   db,
   kotcSeasonsTable, kotcBattlesTable, kotcBattleModsTable,
-  kotcTeamsTable, kotcTeamPlayersTable,
+  kotcTeamsTable, kotcTeamPlayersTable, kotcTeamSeasonsTable,
   kotcBattleRegistrationsTable, kotcRotationQueuesTable,
   kotcGameCardsTable, kotcLifeLedgerTable,
   kotcDramaRulesTable, kotcWaitlistTable, kotcPendingPurchasesTable,
@@ -45,6 +45,17 @@ async function isBattleModOrAdminForCourt(battleId: number, courtNumber: number,
       eq(kotcBattleModsTable.courtNumber, courtNumber),
     ));
   return !!mod;
+}
+
+// Resolves a team's registration row for a given season. Every field that used to
+// live directly on kotcTeamsTable (lives, purchases, dissolve status, reigning-king
+// flag) now lives here, since a team can be registered for several seasons at once.
+async function getTeamSeason(teamId: number, seasonId: number) {
+  const [row] = await db
+    .select()
+    .from(kotcTeamSeasonsTable)
+    .where(and(eq(kotcTeamSeasonsTable.teamId, teamId), eq(kotcTeamSeasonsTable.seasonId, seasonId)));
+  return row;
 }
 
 async function isTeamMemberOrAdmin(teamId: number, userId: number, role: string | null): Promise<boolean> {
@@ -406,11 +417,11 @@ router.post("/kotc/seasons/:seasonId/battles", requireAdmin, async (req, res) =>
 
     // Notify all teams in this season that a new battle has been scheduled
     {
-      const allTeams = await db
-        .select()
-        .from(kotcTeamsTable)
-        .where(eq(kotcTeamsTable.seasonId, seasonId));
-      const allTeamIds = allTeams.map((t) => t.id);
+      const allTeamSeasons = await db
+        .select({ teamId: kotcTeamSeasonsTable.teamId })
+        .from(kotcTeamSeasonsTable)
+        .where(and(eq(kotcTeamSeasonsTable.seasonId, seasonId), sql`${kotcTeamSeasonsTable.status} IS DISTINCT FROM 'dissolved'`));
+      const allTeamIds = allTeamSeasons.map((t) => t.teamId);
       if (allTeamIds.length > 0) {
         const allPlayers = await db
           .select()
@@ -639,13 +650,15 @@ router.get("/kotc/seasons/:seasonId/teams", async (req, res) => {
       return void res.status(404).json({ error: "Season not found" });
     }
 
-    const teams = await db
+    const teamSeasons = await db
       .select()
-      .from(kotcTeamsTable)
-      .where(eq(kotcTeamsTable.seasonId, seasonId))
-      .orderBy(asc(kotcTeamsTable.name));
+      .from(kotcTeamSeasonsTable)
+      .where(and(eq(kotcTeamSeasonsTable.seasonId, seasonId), sql`${kotcTeamSeasonsTable.status} IS DISTINCT FROM 'dissolved'`));
+    const teamIds = teamSeasons.map((ts) => ts.teamId);
+    const teams = teamIds.length > 0
+      ? await db.select().from(kotcTeamsTable).where(inArray(kotcTeamsTable.id, teamIds)).orderBy(asc(kotcTeamsTable.name))
+      : [];
 
-    const teamIds = teams.map((t) => t.id);
     const players = teamIds.length > 0
       ? await db.select().from(kotcTeamPlayersTable).where(inArray(kotcTeamPlayersTable.teamId, teamIds))
       : [];
@@ -653,11 +666,12 @@ router.get("/kotc/seasons/:seasonId/teams", async (req, res) => {
     // Determine which team the user captains (if any) — only captain sees own QR code
 
     res.json(teams.map((t) => {
+      const teamSeason = teamSeasons.find((ts) => ts.teamId === t.id)!;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { qrCode, ...safeTeam } = t;
+      const merged = { ...(user && (user.id === t.captainUserId || user.role === "admin") ? t : safeTeam), ...teamSeason, id: t.id, teamSeasonId: teamSeason.id };
       return {
-        // Only expose QR to the captain or admin
-        ...(user && (user.id === t.captainUserId || user.role === "admin") ? t : safeTeam),
+        ...merged,
         players: players.filter((p) => p.teamId === t.id),
       };
     }));
@@ -675,6 +689,20 @@ router.get("/kotc/teams/:id", requireAuth, async (req, res) => {
 
     const [team] = await db.select().from(kotcTeamsTable).where(eq(kotcTeamsTable.id, id));
     if (!team) return void res.status(404).json({ error: "Team not found" });
+
+    // A team can have several season registrations. ?seasonId picks one; otherwise
+    // default to the most recently registered non-dissolved one (falling back to the
+    // most recent overall) so existing single-season callers keep working.
+    const requestedSeasonId = req.query.seasonId ? Number(req.query.seasonId) : null;
+    const teamSeasons = await db
+      .select()
+      .from(kotcTeamSeasonsTable)
+      .where(eq(kotcTeamSeasonsTable.teamId, id))
+      .orderBy(desc(kotcTeamSeasonsTable.registeredAt));
+    const teamSeason = requestedSeasonId
+      ? teamSeasons.find((ts) => ts.seasonId === requestedSeasonId)
+      : (teamSeasons.find((ts) => ts.status !== "dissolved") ?? teamSeasons[0]);
+    if (!teamSeason) return void res.status(404).json({ error: "Team is not registered for any season" });
 
     const canViewDetails = await isTeamMemberOrAdmin(id, user.id, user.role);
     // QR code is a scan credential — only the captain or admin may see it
@@ -699,23 +727,48 @@ router.get("/kotc/teams/:id", requireAuth, async (req, res) => {
 
     // Omit qrCode from response unless requester is captain or admin
     const { qrCode, ...teamWithoutQr } = team;
-    res.json({ ...(isCaptainOrAdmin ? team : teamWithoutQr), players, isCaptainOrAdmin, myUserId: user.id });
+    const otherSeasonIds = teamSeasons.filter((ts) => ts.id !== teamSeason.id).map((ts) => ts.seasonId);
+    res.json({
+      ...(isCaptainOrAdmin ? team : teamWithoutQr),
+      ...teamSeason,
+      id: team.id,
+      teamSeasonId: teamSeason.id,
+      seasonId: teamSeason.seasonId,
+      players,
+      isCaptainOrAdmin,
+      myUserId: user.id,
+      otherSeasonIds,
+    });
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch team" });
   }
 });
+
+// A team's roster is shared across all seasons it's registered for, but bracket/youth
+// checks and dissolve status are season-specific. Resolve the season to check against:
+// an explicit seasonId if given, otherwise the team's most recently registered
+// non-dissolved season (falling back to its most recent registration overall).
+async function getPrimaryTeamSeason(teamId: number, seasonId?: number) {
+  if (seasonId) return getTeamSeason(teamId, seasonId);
+  const rows = await db
+    .select()
+    .from(kotcTeamSeasonsTable)
+    .where(eq(kotcTeamSeasonsTable.teamId, teamId))
+    .orderBy(desc(kotcTeamSeasonsTable.registeredAt));
+  return rows.find((r) => r.status !== "dissolved") ?? rows[0];
+}
 
 // True if the user is already active/invited on some team in this season (optionally excluding one team)
 async function isUserOnTeamInSeason(userId: number, seasonId: number, excludeTeamId?: number): Promise<boolean> {
   const rows = await db
     .select({ teamId: kotcTeamPlayersTable.teamId })
     .from(kotcTeamPlayersTable)
-    .innerJoin(kotcTeamsTable, eq(kotcTeamsTable.id, kotcTeamPlayersTable.teamId))
+    .innerJoin(kotcTeamSeasonsTable, eq(kotcTeamSeasonsTable.teamId, kotcTeamPlayersTable.teamId))
     .where(and(
       eq(kotcTeamPlayersTable.userId, userId),
-      eq(kotcTeamsTable.seasonId, seasonId),
+      eq(kotcTeamSeasonsTable.seasonId, seasonId),
       inArray(kotcTeamPlayersTable.status, ["active", "invited"]),
-      sql`${kotcTeamsTable.status} IS DISTINCT FROM 'dissolved'`,
+      sql`${kotcTeamSeasonsTable.status} IS DISTINCT FROM 'dissolved'`,
     ));
   return rows.some((r) => r.teamId !== excludeTeamId);
 }
@@ -750,7 +803,6 @@ router.post("/kotc/seasons/:seasonId/teams", requireAuth, async (req, res) => {
     const qrCode = `kotc-team-${randomUUID()}`;
 
     const [team] = await db.insert(kotcTeamsTable).values({
-      seasonId,
       captainUserId: user.id,
       name,
       color: color || null,
@@ -776,10 +828,65 @@ router.post("/kotc/seasons/:seasonId/teams", requireAuth, async (req, res) => {
       joinedAt: new Date(),
     });
 
-    res.status(201).json(team);
+    const [teamSeason] = await db.insert(kotcTeamSeasonsTable).values({
+      teamId: team.id,
+      seasonId,
+    }).returning();
+
+    res.status(201).json({ ...team, ...teamSeason, id: team.id, teamSeasonId: teamSeason.id });
   } catch (err) {
     console.error("[kotc] POST teams:", err);
     res.status(500).json({ error: "Failed to create team" });
+  }
+});
+
+// Register an EXISTING team (same captain) for another season — this is how "the same
+// team" plays across multiple seasons, without ever double-registering for one season
+// (enforced by the unique(teamId, seasonId) constraint on kotc_team_seasons).
+router.post("/kotc/teams/:teamId/register-season", requireAuth, async (req, res) => {
+  try {
+    const teamId = Number(req.params.teamId);
+    const seasonId = Number(req.body.seasonId);
+    if (!seasonId) return void res.status(400).json({ error: "seasonId required" });
+
+    const { userId: clerkId } = getAuth(req);
+    const user = await getDbUser(clerkId!);
+    if (!user) return void res.status(401).json({ error: "Unauthorized" });
+
+    const [team] = await db.select().from(kotcTeamsTable).where(eq(kotcTeamsTable.id, teamId));
+    if (!team) return void res.status(404).json({ error: "Team not found" });
+    if (team.captainUserId !== user.id && user.role !== "admin") {
+      return void res.status(403).json({ error: "Only the team's captain can register it for a new season" });
+    }
+
+    const [season] = await db.select().from(kotcSeasonsTable).where(eq(kotcSeasonsTable.id, seasonId));
+    if (!season) return void res.status(404).json({ error: "Season not found" });
+
+    if (await isUserOnTeamInSeason(team.captainUserId, seasonId)) {
+      return void res.status(409).json({ error: "This team is already registered for this season" });
+    }
+
+    const seasonIsYouth = (season as Record<string, unknown>).isYouth ||
+      isYouthBracket(String((season as Record<string, unknown>).genderBracket || ""), String((season as Record<string, unknown>).ageBracket || ""));
+    if (seasonIsYouth) {
+      const guardianOk = await hasApprovedGuardian(team.captainUserId);
+      if (!guardianOk) {
+        return void res.status(403).json({ error: "Youth seasons require an approved guardian on file before registering a team" });
+      }
+    }
+
+    const [teamSeason] = await db.insert(kotcTeamSeasonsTable).values({
+      teamId,
+      seasonId,
+    }).returning();
+
+    res.status(201).json({ ...team, ...teamSeason, id: team.id, teamSeasonId: teamSeason.id });
+  } catch (err: any) {
+    if (err?.code === "23505") {
+      return void res.status(409).json({ error: "This team is already registered for this season" });
+    }
+    console.error("[kotc] POST register-season:", err);
+    res.status(500).json({ error: "Failed to register team for season" });
   }
 });
 
@@ -824,11 +931,13 @@ router.post("/kotc/teams/:id/invite", requireAuth, async (req, res) => {
 
     const [team] = await db.select().from(kotcTeamsTable).where(eq(kotcTeamsTable.id, teamId));
     if (!team) return void res.status(404).json({ error: "Team not found" });
-    if (team.status === "dissolved") {
-      return void res.status(400).json({ error: "This team has been dissolved and cannot invite players" });
-    }
     if (team.captainUserId !== user.id && user.role !== "admin") {
       return void res.status(403).json({ error: "Only the captain can invite players" });
+    }
+
+    const teamSeason = await getPrimaryTeamSeason(teamId, req.body.seasonId ? Number(req.body.seasonId) : undefined);
+    if (!teamSeason || teamSeason.status === "dissolved") {
+      return void res.status(400).json({ error: "This team is not currently registered for any active season" });
     }
 
     const { inviteeUserId, inviteeEmail, inviteePhone } = req.body;
@@ -856,7 +965,7 @@ router.post("/kotc/teams/:id/invite", requireAuth, async (req, res) => {
     if (!invitee) return void res.status(404).json({ error: "User not found" });
 
     // Load season for bracket + youth checks
-    const [season] = await db.select().from(kotcSeasonsTable).where(eq(kotcSeasonsTable.id, team.seasonId));
+    const [season] = await db.select().from(kotcSeasonsTable).where(eq(kotcSeasonsTable.id, teamSeason.seasonId));
 
     // Youth guardian prerequisite
     if ((season as Record<string, unknown>).isYouth) {
@@ -883,7 +992,7 @@ router.post("/kotc/teams/:id/invite", requireAuth, async (req, res) => {
 
     if (existing) return void res.status(409).json({ error: "Player already on team" });
 
-    if (await isUserOnTeamInSeason(invitee.id, team.seasonId)) {
+    if (await isUserOnTeamInSeason(invitee.id, teamSeason.seasonId)) {
       return void res.status(409).json({ error: "This player is already on another team registered for this season" });
     }
 
@@ -966,8 +1075,14 @@ router.post("/kotc/team-invites/:id/accept", requireAuth, async (req, res) => {
     const [team] = await db.select().from(kotcTeamsTable).where(eq(kotcTeamsTable.id, invite.teamId));
     if (!team) return void res.status(404).json({ error: "Team not found" });
 
-    if (await isUserOnTeamInSeason(user.id, team.seasonId, team.id)) {
-      return void res.status(409).json({ error: "You're already on another team registered for this season" });
+    const teamSeasons = await db
+      .select({ seasonId: kotcTeamSeasonsTable.seasonId })
+      .from(kotcTeamSeasonsTable)
+      .where(and(eq(kotcTeamSeasonsTable.teamId, team.id), sql`${kotcTeamSeasonsTable.status} IS DISTINCT FROM 'dissolved'`));
+    for (const ts of teamSeasons) {
+      if (await isUserOnTeamInSeason(user.id, ts.seasonId, team.id)) {
+        return void res.status(409).json({ error: "You're already on another team registered for a season this team is playing in" });
+      }
     }
 
     const [updated] = await db
@@ -1019,7 +1134,6 @@ router.get("/kotc/my-invites", requireAuth, async (req, res) => {
         invitedAt: kotcTeamPlayersTable.invitedAt,
         teamName: kotcTeamsTable.name,
         teamColor: kotcTeamsTable.color,
-        seasonId: kotcTeamsTable.seasonId,
         captainUserId: kotcTeamsTable.captainUserId,
       })
       .from(kotcTeamPlayersTable)
@@ -1029,7 +1143,21 @@ router.get("/kotc/my-invites", requireAuth, async (req, res) => {
 
     if (invites.length === 0) return void res.json([]);
 
-    const seasonIds = [...new Set(invites.map((i) => i.seasonId).filter((v): v is number => v != null))];
+    const teamIds = [...new Set(invites.map((i) => i.teamId))];
+    const teamSeasons = await db
+      .select()
+      .from(kotcTeamSeasonsTable)
+      .where(inArray(kotcTeamSeasonsTable.teamId, teamIds))
+      .orderBy(desc(kotcTeamSeasonsTable.registeredAt));
+    const primarySeasonByTeam = new Map<number, number>();
+    for (const ts of teamSeasons) {
+      if (!primarySeasonByTeam.has(ts.teamId) || ts.status !== "dissolved") {
+        if (!primarySeasonByTeam.has(ts.teamId)) primarySeasonByTeam.set(ts.teamId, ts.seasonId);
+        else if (ts.status !== "dissolved") primarySeasonByTeam.set(ts.teamId, ts.seasonId);
+      }
+    }
+
+    const seasonIds = [...new Set([...primarySeasonByTeam.values()])];
     const seasons = seasonIds.length > 0
       ? await db.select().from(kotcSeasonsTable).where(inArray(kotcSeasonsTable.id, seasonIds))
       : [];
@@ -1038,14 +1166,18 @@ router.get("/kotc/my-invites", requireAuth, async (req, res) => {
       ? await db.select().from(usersTable).where(inArray(usersTable.id, captainIds))
       : [];
 
-    res.json(invites.map((inv) => ({
-      ...inv,
-      seasonName: seasons.find((s) => s.id === inv.seasonId)?.name ?? null,
-      captainName: (() => {
-        const c = captains.find((u) => u.id === inv.captainUserId);
-        return c ? `${c.firstName ?? ""} ${c.lastName ?? ""}`.trim() : null;
-      })(),
-    })));
+    res.json(invites.map((inv) => {
+      const seasonId = primarySeasonByTeam.get(inv.teamId) ?? null;
+      return {
+        ...inv,
+        seasonId,
+        seasonName: seasons.find((s) => s.id === seasonId)?.name ?? null,
+        captainName: (() => {
+          const c = captains.find((u) => u.id === inv.captainUserId);
+          return c ? `${c.firstName ?? ""} ${c.lastName ?? ""}`.trim() : null;
+        })(),
+      };
+    }));
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch invites" });
   }
@@ -1067,10 +1199,14 @@ router.get("/kotc/my-teams", requireAuth, async (req, res) => {
     if (memberships.length === 0) return void res.json([]);
 
     const teamIds = memberships.map((m) => m.teamId);
-    const teams = await db
+    const teams = await db.select().from(kotcTeamsTable).where(inArray(kotcTeamsTable.id, teamIds));
+
+    // One row per (team, season) registration — a team can be registered for several seasons.
+    const teamSeasons = await db
       .select()
-      .from(kotcTeamsTable)
-      .where(and(inArray(kotcTeamsTable.id, teamIds), sql`${kotcTeamsTable.status} IS DISTINCT FROM 'dissolved'`));
+      .from(kotcTeamSeasonsTable)
+      .where(and(inArray(kotcTeamSeasonsTable.teamId, teamIds), sql`${kotcTeamSeasonsTable.status} IS DISTINCT FROM 'dissolved'`));
+    if (teamSeasons.length === 0) return void res.json([]);
 
     const allPlayers = await db
       .select()
@@ -1084,20 +1220,32 @@ router.get("/kotc/my-teams", requireAuth, async (req, res) => {
         eq(kotcGameCardsTable.status, "completed"),
         or(inArray(kotcGameCardsTable.team1Id, teamIds), inArray(kotcGameCardsTable.team2Id, teamIds)),
       ));
+    const gcBattleIds = [...new Set(gameCards.map((c) => c.battleId))];
+    const gcBattles = gcBattleIds.length > 0
+      ? await db.select({ id: kotcBattlesTable.id, seasonId: kotcBattlesTable.seasonId }).from(kotcBattlesTable).where(inArray(kotcBattlesTable.id, gcBattleIds))
+      : [];
 
-    const seasonIds = [...new Set(teams.map((t) => t.seasonId))];
+    const seasonIds = [...new Set(teamSeasons.map((ts) => ts.seasonId))];
     const seasons = seasonIds.length > 0
       ? await db.select({ id: kotcSeasonsTable.id, name: kotcSeasonsTable.name }).from(kotcSeasonsTable).where(inArray(kotcSeasonsTable.id, seasonIds))
       : [];
 
-    res.json(teams.map((t) => ({
-      ...t,
-      myRole: memberships.find((m) => m.teamId === t.id)?.role ?? "player",
-      playerCount: allPlayers.filter((p) => p.teamId === t.id).length,
-      wins: gameCards.filter((c) => c.winnerTeamId === t.id).length,
-      losses: gameCards.filter((c) => c.loserTeamId === t.id).length,
-      seasonName: seasons.find((s) => s.id === t.seasonId)?.name ?? null,
-    })));
+    res.json(teamSeasons.map((ts) => {
+      const team = teams.find((t) => t.id === ts.teamId)!;
+      const seasonBattleIds = new Set(gcBattles.filter((b) => b.seasonId === ts.seasonId).map((b) => b.id));
+      const seasonGameCards = gameCards.filter((c) => seasonBattleIds.has(c.battleId));
+      return {
+        ...team,
+        ...ts,
+        id: team.id,
+        teamSeasonId: ts.id,
+        myRole: memberships.find((m) => m.teamId === team.id)?.role ?? "player",
+        playerCount: allPlayers.filter((p) => p.teamId === team.id).length,
+        wins: seasonGameCards.filter((c) => c.winnerTeamId === team.id).length,
+        losses: seasonGameCards.filter((c) => c.loserTeamId === team.id).length,
+        seasonName: seasons.find((s) => s.id === ts.seasonId)?.name ?? null,
+      };
+    }));
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch teams" });
   }
@@ -1117,11 +1265,18 @@ router.get("/kotc/my-battle-registrations", requireAuth, async (req, res) => {
     if (memberships.length === 0) return void res.json([]);
 
     const teamIds = memberships.map((m) => m.teamId);
-    const teams = await db
-      .select()
-      .from(kotcTeamsTable)
-      .where(and(inArray(kotcTeamsTable.id, teamIds), sql`${kotcTeamsTable.status} IS DISTINCT FROM 'dissolved'`));
+    const teams = await db.select().from(kotcTeamsTable).where(inArray(kotcTeamsTable.id, teamIds));
     if (teams.length === 0) return void res.json([]);
+
+    const teamSeasons = await db
+      .select({ teamId: kotcTeamSeasonsTable.teamId, seasonId: kotcTeamSeasonsTable.seasonId })
+      .from(kotcTeamSeasonsTable)
+      .where(and(inArray(kotcTeamSeasonsTable.teamId, teamIds), sql`${kotcTeamSeasonsTable.status} IS DISTINCT FROM 'dissolved'`));
+    const activeSeasonIdsByTeam = new Map<number, Set<number>>();
+    for (const ts of teamSeasons) {
+      if (!activeSeasonIdsByTeam.has(ts.teamId)) activeSeasonIdsByTeam.set(ts.teamId, new Set());
+      activeSeasonIdsByTeam.get(ts.teamId)!.add(ts.seasonId);
+    }
 
     const registrations = await db
       .select()
@@ -1141,7 +1296,11 @@ router.get("/kotc/my-battle-registrations", requireAuth, async (req, res) => {
       : [];
 
     res.json(registrations
-      .filter((r) => battles.some((b) => b.id === r.battleId) && String(battles.find((b) => b.id === r.battleId)?.status) !== "completed" && String(battles.find((b) => b.id === r.battleId)?.status) !== "cancelled")
+      .filter((r) => {
+        const battle = battles.find((b) => b.id === r.battleId);
+        if (!battle || battle.status === "completed" || battle.status === "cancelled") return false;
+        return activeSeasonIdsByTeam.get(r.teamId)?.has(battle.seasonId) ?? false;
+      })
       .map((r) => {
         const battle = battles.find((b) => b.id === r.battleId)!;
         const team = teams.find((t) => t.id === r.teamId)!;
@@ -1177,9 +1336,6 @@ router.post("/kotc/battles/:battleId/register", requireAuth, async (req, res) =>
 
     const [team] = await db.select().from(kotcTeamsTable).where(eq(kotcTeamsTable.id, Number(teamId)));
     if (!team) return void res.status(404).json({ error: "Team not found" });
-    if (team.status === "dissolved") {
-      return void res.status(400).json({ error: "This team has been dissolved and cannot register for battles" });
-    }
     if (team.captainUserId !== user.id && user.role !== "admin") {
       return void res.status(403).json({ error: "Only the captain can register the team" });
     }
@@ -1187,13 +1343,17 @@ router.post("/kotc/battles/:battleId/register", requireAuth, async (req, res) =>
     const [battle] = await db.select().from(kotcBattlesTable).where(eq(kotcBattlesTable.id, battleId));
     if (!battle) return void res.status(404).json({ error: "Battle not found" });
 
-    // Cross-season integrity: team must belong to the same season as the battle
-    if (team.seasonId !== battle.seasonId) {
-      return void res.status(400).json({ error: "Team is not registered in the same season as this battle" });
+    // Cross-season integrity: team must be registered for the same season as the battle
+    const teamSeason = await getTeamSeason(team.id, battle.seasonId);
+    if (!teamSeason) {
+      return void res.status(400).json({ error: "Team is not registered for the same season as this battle" });
+    }
+    if (teamSeason.status === "dissolved") {
+      return void res.status(400).json({ error: "This team's registration for this season has been dissolved and cannot register for battles" });
     }
 
     const [season] = await db.select().from(kotcSeasonsTable).where(eq(kotcSeasonsTable.id, battle.seasonId));
-    if (team.livesBalance < season.livesRequired) {
+    if (teamSeason.livesBalance < season.livesRequired) {
       return void res.status(400).json({
         error: `Team must have at least ${season.livesRequired} lives to register`,
       });
@@ -1433,6 +1593,9 @@ router.get("/kotc/battles/:battleId/queue", requireAuth, async (req, res) => {
     const battleId = Number(req.params.battleId);
     const courtNumber = Number(req.query.court || 1);
 
+    const [battle] = await db.select({ seasonId: kotcBattlesTable.seasonId }).from(kotcBattlesTable).where(eq(kotcBattlesTable.id, battleId));
+    if (!battle) return void res.status(404).json({ error: "Battle not found" });
+
     const queue = await db
       .select({
         id: kotcRotationQueuesTable.id,
@@ -1444,10 +1607,11 @@ router.get("/kotc/battles/:battleId/queue", requireAuth, async (req, res) => {
         graceExpiresAt: kotcRotationQueuesTable.graceExpiresAt,
         teamName: kotcTeamsTable.name,
         teamColor: kotcTeamsTable.color,
-        livesBalance: kotcTeamsTable.livesBalance,
+        livesBalance: kotcTeamSeasonsTable.livesBalance,
       })
       .from(kotcRotationQueuesTable)
       .leftJoin(kotcTeamsTable, eq(kotcTeamsTable.id, kotcRotationQueuesTable.teamId))
+      .leftJoin(kotcTeamSeasonsTable, and(eq(kotcTeamSeasonsTable.teamId, kotcRotationQueuesTable.teamId), eq(kotcTeamSeasonsTable.seasonId, battle.seasonId)))
       .where(and(
         eq(kotcRotationQueuesTable.battleId, battleId),
         eq(kotcRotationQueuesTable.courtNumber, courtNumber),
@@ -1605,6 +1769,11 @@ router.post("/kotc/battles/:battleId/no-show", requireAuth, async (req, res) => 
     const [team] = await db.select().from(kotcTeamsTable).where(eq(kotcTeamsTable.id, Number(teamId)));
     if (!team) return void res.status(404).json({ error: "Team not found" });
 
+    const [battle] = await db.select().from(kotcBattlesTable).where(eq(kotcBattlesTable.id, battleId));
+    if (!battle) return void res.status(404).json({ error: "Battle not found" });
+    const teamSeason = await getTeamSeason(team.id, battle.seasonId);
+    if (!teamSeason) return void res.status(400).json({ error: "Team is not registered for this battle's season" });
+
     const [entry] = await db
       .select()
       .from(kotcRotationQueuesTable)
@@ -1620,12 +1789,12 @@ router.post("/kotc/battles/:battleId/no-show", requireAuth, async (req, res) => 
       return void res.status(403).json({ error: "You are not assigned as moderator for this court" });
     }
 
-    const newBalance = Math.max(0, team.livesBalance - 1);
-    await db.update(kotcTeamsTable).set({ livesBalance: newBalance, updatedAt: new Date() })
-      .where(eq(kotcTeamsTable.id, Number(teamId)));
+    const newBalance = Math.max(0, teamSeason.livesBalance - 1);
+    await db.update(kotcTeamSeasonsTable).set({ livesBalance: newBalance, updatedAt: new Date() })
+      .where(eq(kotcTeamSeasonsTable.id, teamSeason.id));
 
     await db.insert(kotcLifeLedgerTable).values({
-      teamId: Number(teamId),
+      teamSeasonId: teamSeason.id,
       delta: -1,
       reason: "no_show_penalty",
       referenceType: "admin",
@@ -1633,11 +1802,8 @@ router.post("/kotc/battles/:battleId/no-show", requireAuth, async (req, res) => 
       createdByUserId: user.id,
     });
 
-    // Fetch season so grace timer duration matches season config (not a hardcoded constant)
-    const [battle] = await db.select().from(kotcBattlesTable).where(eq(kotcBattlesTable.id, battleId));
-    const [noShowSeason] = battle
-      ? await db.select().from(kotcSeasonsTable).where(eq(kotcSeasonsTable.id, battle.seasonId))
-      : [undefined];
+    // Grace timer duration matches season config (not a hardcoded constant)
+    const [noShowSeason] = await db.select().from(kotcSeasonsTable).where(eq(kotcSeasonsTable.id, battle.seasonId));
     const graceSeconds = noShowSeason?.gracePeriodSeconds || 60;
 
     const [maxPos] = await db
@@ -1704,7 +1870,7 @@ router.post("/kotc/battles/:battleId/no-show", requireAuth, async (req, res) => 
               eq(kotcRotationQueuesTable.status, "pending_purchase"),
             ));
           if (current) {
-            const [refreshed] = await db.select().from(kotcTeamsTable).where(eq(kotcTeamsTable.id, Number(teamId)));
+            const refreshed = await getTeamSeason(Number(teamId), battle.seasonId);
             if ((refreshed?.livesBalance ?? 0) <= 0) {
               await db.update(kotcRotationQueuesTable).set({
                 status: "bowed_out",
@@ -1875,8 +2041,12 @@ router.post("/kotc/battles/:battleId/scan", requireAuth, async (req, res) => {
     if (!q1) return void res.status(400).json({ error: `${team1.name} is not currently eligible (bowed out or awaiting payment)` });
     if (!q2) return void res.status(400).json({ error: `${team2.name} is not currently eligible (bowed out or awaiting payment)` });
 
-    if (team1.livesBalance < 1) return void res.status(400).json({ error: `${team1.name} has no lives remaining` });
-    if (team2.livesBalance < 1) return void res.status(400).json({ error: `${team2.name} has no lives remaining` });
+    const team1Season = await getTeamSeason(team1.id, battle.seasonId);
+    const team2Season = await getTeamSeason(team2.id, battle.seasonId);
+    if (!team1Season) return void res.status(400).json({ error: `${team1.name} is not registered for this season` });
+    if (!team2Season) return void res.status(400).json({ error: `${team2.name} is not registered for this season` });
+    if (team1Season.livesBalance < 1) return void res.status(400).json({ error: `${team1.name} has no lives remaining` });
+    if (team2Season.livesBalance < 1) return void res.status(400).json({ error: `${team2.name} has no lives remaining` });
 
     const [captain1Member] = await db
       .select()
@@ -1983,15 +2153,20 @@ router.post("/kotc/game-cards/:gameCardId/result", requireAuth, async (req, res)
     const [loserTeam] = await db.select().from(kotcTeamsTable).where(eq(kotcTeamsTable.id, loserTeamId));
     if (!loserTeam) return void res.status(404).json({ error: "Loser team not found" });
 
-    const newBalance = loserTeam.livesBalance - 1;
-    await db.update(kotcTeamsTable).set({
+    const [battle] = await db.select().from(kotcBattlesTable).where(eq(kotcBattlesTable.id, gameCard.battleId));
+    const [season] = await db.select().from(kotcSeasonsTable).where(eq(kotcSeasonsTable.id, battle.seasonId));
+    const loserTeamSeason = await getTeamSeason(loserTeamId, battle.seasonId);
+    if (!loserTeamSeason) return void res.status(400).json({ error: "Losing team is not registered for this season" });
+
+    const newBalance = loserTeamSeason.livesBalance - 1;
+    await db.update(kotcTeamSeasonsTable).set({
       livesBalance: newBalance,
-      livesConsumed: loserTeam.livesConsumed + 1,
+      livesConsumed: loserTeamSeason.livesConsumed + 1,
       updatedAt: new Date(),
-    }).where(eq(kotcTeamsTable.id, loserTeamId));
+    }).where(eq(kotcTeamSeasonsTable.id, loserTeamSeason.id));
 
     await db.insert(kotcLifeLedgerTable).values({
-      teamId: loserTeamId,
+      teamSeasonId: loserTeamSeason.id,
       delta: -1,
       reason: "game_loss",
       referenceType: "kotc_game_card",
@@ -2000,13 +2175,10 @@ router.post("/kotc/game-cards/:gameCardId/result", requireAuth, async (req, res)
       createdByUserId: user.id,
     });
 
-    const [battle] = await db.select().from(kotcBattlesTable).where(eq(kotcBattlesTable.id, gameCard.battleId));
-    const [season] = await db.select().from(kotcSeasonsTable).where(eq(kotcSeasonsTable.id, battle.seasonId));
-
     await reorderQueue(gameCard.battleId, gameCard.courtNumber ?? 1, Number(winnerTeamId), loserTeamId);
 
     // Phase 2: evaluate drama rules (fire-and-forget)
-    evaluateDramaRules(battle.seasonId, gameCard.battleId, Number(winnerTeamId), loserTeamId, loserTeam.livesBalance + 1).catch(() => {});
+    evaluateDramaRules(battle.seasonId, gameCard.battleId, Number(winnerTeamId), loserTeamId, loserTeamSeason.livesBalance + 1).catch(() => {});
 
     if (newBalance <= 0) {
       await db.update(kotcRotationQueuesTable).set({
@@ -2067,8 +2239,8 @@ router.post("/kotc/game-cards/:gameCardId/result", requireAuth, async (req, res)
             ));
 
           if (current) {
-            const [refreshedTeam] = await db.select().from(kotcTeamsTable).where(eq(kotcTeamsTable.id, loserTeamId));
-            if ((refreshedTeam?.livesBalance ?? 0) <= 0) {
+            const refreshedTeamSeason = await getTeamSeason(loserTeamId, battle.seasonId);
+            if ((refreshedTeamSeason?.livesBalance ?? 0) <= 0) {
               await db.update(kotcRotationQueuesTable).set({
                 status: "bowed_out",
                 bowedOutAt: new Date(),
@@ -2184,8 +2356,9 @@ async function reorderQueue(battleId: number, courtNumber: number, winnerTeamId:
 router.post("/kotc/teams/:teamId/credit-lives", requireAdmin, async (req, res) => {
   try {
     const teamId = Number(req.params.teamId);
-    const { amount, reason } = req.body;
+    const { amount, reason, seasonId } = req.body;
     if (!amount || Number(amount) === 0) return void res.status(400).json({ error: "amount required" });
+    if (!seasonId) return void res.status(400).json({ error: "seasonId required" });
 
     const { userId: clerkId } = getAuth(req);
     const user = await getDbUser(clerkId!);
@@ -2193,14 +2366,17 @@ router.post("/kotc/teams/:teamId/credit-lives", requireAdmin, async (req, res) =
     const [team] = await db.select().from(kotcTeamsTable).where(eq(kotcTeamsTable.id, teamId));
     if (!team) return void res.status(404).json({ error: "Team not found" });
 
-    const newBalance = team.livesBalance + Number(amount);
-    await db.update(kotcTeamsTable).set({
+    const teamSeason = await getTeamSeason(teamId, Number(seasonId));
+    if (!teamSeason) return void res.status(404).json({ error: "Team is not registered for this season" });
+
+    const newBalance = teamSeason.livesBalance + Number(amount);
+    await db.update(kotcTeamSeasonsTable).set({
       livesBalance: newBalance,
       updatedAt: new Date(),
-    }).where(eq(kotcTeamsTable.id, teamId));
+    }).where(eq(kotcTeamSeasonsTable.id, teamSeason.id));
 
     const [entry] = await db.insert(kotcLifeLedgerTable).values({
-      teamId,
+      teamSeasonId: teamSeason.id,
       delta: Number(amount),
       reason: reason || "admin_credit",
       referenceType: "admin",
@@ -2239,12 +2415,16 @@ router.get("/kotc/seasons/:seasonId/leaderboard", requireAuth, async (req, res) 
   try {
     const seasonId = Number(req.params.seasonId);
 
+    const teamSeasons = await db
+      .select()
+      .from(kotcTeamSeasonsTable)
+      .where(and(eq(kotcTeamSeasonsTable.seasonId, seasonId), eq(kotcTeamSeasonsTable.status, "active")));
+    if (teamSeasons.length === 0) return void res.json([]);
+
     const teams = await db
       .select()
       .from(kotcTeamsTable)
-      .where(and(eq(kotcTeamsTable.seasonId, seasonId), eq(kotcTeamsTable.status, "active")));
-
-    if (teams.length === 0) return void res.json([]);
+      .where(inArray(kotcTeamsTable.id, teamSeasons.map((ts) => ts.teamId)));
 
     // Derive Reigning King from prior seasons' championTeamId → captain linkage
     // A team is "Reigning King" if its captain was the captain of a prior season's champion team
@@ -2293,6 +2473,7 @@ router.get("/kotc/seasons/:seasonId/leaderboard", requireAuth, async (req, res) 
       : [];
 
     const stats = teams.map((team) => {
+      const teamSeason = teamSeasons.find((ts) => ts.teamId === team.id)!;
       const wins = allGameCards.filter((gc) => gc.winnerTeamId === team.id).length;
       const losses = allGameCards.filter((gc) => gc.loserTeamId === team.id).length;
       const gamesPlayed = wins + losses;
@@ -2322,8 +2503,8 @@ router.get("/kotc/seasons/:seasonId/leaderboard", requireAuth, async (req, res) 
         teamId: team.id,
         teamName: team.name,
         teamColor: team.color,
-        livesRemaining: team.livesBalance,
-        livesConsumed: team.livesConsumed,
+        livesRemaining: teamSeason.livesBalance,
+        livesConsumed: teamSeason.livesConsumed,
         wins,
         losses,
         gamesPlayed,
@@ -2331,7 +2512,7 @@ router.get("/kotc/seasons/:seasonId/leaderboard", requireAuth, async (req, res) 
         winRate: Math.round(winRate * 100) / 100,
         hotStreak: hotStreak >= 3 ? hotStreak : 0,
         isReigning: priorChampionCaptainIds.has(team.captainUserId),
-        status: team.status,
+        status: teamSeason.status,
       };
     });
 
@@ -2403,8 +2584,8 @@ async function evaluateDramaRules(
 
     if (rules.length === 0) return;
 
-    const [winnerTeam] = await db.select().from(kotcTeamsTable).where(eq(kotcTeamsTable.id, winnerTeamId));
-    if (!winnerTeam) return;
+    const winnerTeamSeason = await getTeamSeason(winnerTeamId, seasonId);
+    if (!winnerTeamSeason) return;
 
     for (const rule of rules) {
       let triggered = false;
@@ -2459,13 +2640,13 @@ async function evaluateDramaRules(
       }
 
       if (triggered) {
-        const newBalance = winnerTeam.livesBalance + rule.rewardLives;
-        await db.update(kotcTeamsTable)
+        const newBalance = winnerTeamSeason.livesBalance + rule.rewardLives;
+        await db.update(kotcTeamSeasonsTable)
           .set({ livesBalance: newBalance, updatedAt: new Date() })
-          .where(eq(kotcTeamsTable.id, winnerTeamId));
+          .where(eq(kotcTeamSeasonsTable.id, winnerTeamSeason.id));
 
         await db.insert(kotcLifeLedgerTable).values({
-          teamId: winnerTeamId,
+          teamSeasonId: winnerTeamSeason.id,
           delta: rule.rewardLives,
           reason: "drama_rule_bonus",
           referenceType: "kotc_drama_rule",
@@ -2578,10 +2759,11 @@ router.get("/kotc/seasons/:seasonId/life-packs", requireAuth, async (req, res) =
 router.post("/kotc/teams/:teamId/checkout", requireAuth, async (req, res) => {
   try {
     const teamId = Number(req.params.teamId);
-    const { packIndex } = req.body;
+    const { packIndex, seasonId } = req.body;
     if (packIndex === undefined || packIndex === null) {
       return void res.status(400).json({ error: "packIndex required" });
     }
+    if (!seasonId) return void res.status(400).json({ error: "seasonId required" });
 
     const { userId: clerkId } = getAuth(req);
     const user = await getDbUser(clerkId!);
@@ -2592,11 +2774,13 @@ router.post("/kotc/teams/:teamId/checkout", requireAuth, async (req, res) => {
     if (team.captainUserId !== user.id && user.role !== "admin") {
       return void res.status(403).json({ error: "Only the captain can purchase lives" });
     }
-    if (team.status === "dissolved") {
-      return void res.status(400).json({ error: "Cannot purchase lives for a dissolved team" });
+    const teamSeason = await getTeamSeason(teamId, Number(seasonId));
+    if (!teamSeason) return void res.status(404).json({ error: "Team is not registered for this season" });
+    if (teamSeason.status === "dissolved") {
+      return void res.status(400).json({ error: "Cannot purchase lives for a dissolved team registration" });
     }
 
-    const [season] = await db.select().from(kotcSeasonsTable).where(eq(kotcSeasonsTable.id, team.seasonId));
+    const [season] = await db.select().from(kotcSeasonsTable).where(eq(kotcSeasonsTable.id, teamSeason.seasonId));
     if (!season) return void res.status(404).json({ error: "Season not found" });
 
     const lifePacks: Array<{ name: string; lives: number; priceCents: number }> = (season as any).lifePacks ?? [];
@@ -2619,8 +2803,8 @@ router.post("/kotc/teams/:teamId/checkout", requireAuth, async (req, res) => {
         return void res.status(403).json({ error: "Youth captain requires an approved guardian to purchase lives" });
       }
 
-      const capCents = (team as any).guardianSpendingCapCents ?? null;
-      const alreadySpentCents = (team as any).totalPurchasedCents ?? 0;
+      const capCents = teamSeason.guardianSpendingCapCents ?? null;
+      const alreadySpentCents = teamSeason.totalPurchasedCents ?? 0;
       if (capCents !== null && alreadySpentCents + pack.priceCents > capCents) {
         return void res.status(400).json({
           error: `Purchase would exceed the guardian-set spending cap of $${(capCents / 100).toFixed(2)}. Current spend: $${(alreadySpentCents / 100).toFixed(2)}.`,
@@ -2802,9 +2986,12 @@ router.post("/kotc/pending-purchases/:id/approve", requireAuth, async (req, res)
     const [season] = await db.select().from(kotcSeasonsTable).where(eq(kotcSeasonsTable.id, pending.seasonId));
     if (!season) return void res.status(404).json({ error: "Season not found" });
 
+    const teamSeason = await getTeamSeason(pending.teamId, pending.seasonId);
+    if (!teamSeason) return void res.status(404).json({ error: "Team is not registered for this season" });
+
     // Check spending cap again at approval time
-    const capCents = (team as any).guardianSpendingCapCents ?? null;
-    const alreadySpentCents = (team as any).totalPurchasedCents ?? 0;
+    const capCents = teamSeason.guardianSpendingCapCents ?? null;
+    const alreadySpentCents = teamSeason.totalPurchasedCents ?? 0;
     if (capCents !== null && alreadySpentCents + pending.packPriceCents > capCents) {
       return void res.status(400).json({
         error: `Purchase would exceed the spending cap of $${(capCents / 100).toFixed(2)}`,
@@ -2906,7 +3093,8 @@ router.post("/kotc/pending-purchases/:id/decline", requireAuth, async (req, res)
 router.patch("/kotc/teams/:teamId/guardian-cap", requireAuth, async (req, res) => {
   try {
     const teamId = Number(req.params.teamId);
-    const { guardianSpendingCapCents } = req.body;
+    const { guardianSpendingCapCents, seasonId } = req.body;
+    if (!seasonId) return void res.status(400).json({ error: "seasonId required" });
     const { userId: clerkId } = getAuth(req);
     const user = await getDbUser(clerkId!);
     if (!user) return void res.status(401).json({ error: "Unauthorized" });
@@ -2925,9 +3113,12 @@ router.patch("/kotc/teams/:teamId/guardian-cap", requireAuth, async (req, res) =
       return void res.status(403).json({ error: "Only the team's guardian or an admin may set the spending cap" });
     }
 
-    const [updated] = await db.update(kotcTeamsTable)
-      .set({ guardianSpendingCapCents: guardianSpendingCapCents !== null ? Number(guardianSpendingCapCents) : null, updatedAt: new Date() } as any)
-      .where(eq(kotcTeamsTable.id, teamId))
+    const teamSeason = await getTeamSeason(teamId, Number(seasonId));
+    if (!teamSeason) return void res.status(404).json({ error: "Team is not registered for this season" });
+
+    const [updated] = await db.update(kotcTeamSeasonsTable)
+      .set({ guardianSpendingCapCents: guardianSpendingCapCents !== null ? Number(guardianSpendingCapCents) : null, updatedAt: new Date() })
+      .where(eq(kotcTeamSeasonsTable.id, teamSeason.id))
       .returning();
 
     res.json(updated);
@@ -2941,6 +3132,8 @@ router.patch("/kotc/teams/:teamId/guardian-cap", requireAuth, async (req, res) =
 router.post("/kotc/teams/:teamId/dissolve", requireAuth, async (req, res) => {
   try {
     const teamId = Number(req.params.teamId);
+    const seasonId = Number(req.body.seasonId);
+    if (!seasonId) return void res.status(400).json({ error: "seasonId required" });
     const { userId: clerkId } = getAuth(req);
     const user = await getDbUser(clerkId!);
     if (!user) return void res.status(401).json({ error: "Unauthorized" });
@@ -2957,23 +3150,26 @@ router.post("/kotc/teams/:teamId/dissolve", requireAuth, async (req, res) => {
     if (team.captainUserId !== user.id && !isGuardian && user.role !== "admin") {
       return void res.status(403).json({ error: "Only the team captain, their guardian, or an admin may dissolve the team" });
     }
-    if (team.status === "dissolved") {
-      return void res.status(400).json({ error: "Team is already dissolved" });
+
+    const teamSeason = await getTeamSeason(teamId, seasonId);
+    if (!teamSeason) return void res.status(404).json({ error: "Team is not registered for this season" });
+    if (teamSeason.status === "dissolved") {
+      return void res.status(400).json({ error: "This season registration is already dissolved" });
     }
 
     // Check refund eligibility: zero battles attended AND within 48hr of first purchase
     let refundIssued = false;
     let refundMessage = "Lives forfeited. No refund issued.";
 
-    const firstPurchaseAt: Date | null = (team as any).firstPurchaseAt ?? null;
-    const totalPurchasedCents: number = (team as any).totalPurchasedCents ?? 0;
+    const firstPurchaseAt: Date | null = teamSeason.firstPurchaseAt ?? null;
+    const totalPurchasedCents: number = teamSeason.totalPurchasedCents ?? 0;
 
     // Count battles where this team played at least one game
-    const [season] = await db.select().from(kotcSeasonsTable).where(eq(kotcSeasonsTable.id, team.seasonId));
+    const [season] = await db.select().from(kotcSeasonsTable).where(eq(kotcSeasonsTable.id, seasonId));
     const battles = await db
       .select({ id: kotcBattlesTable.id })
       .from(kotcBattlesTable)
-      .where(eq(kotcBattlesTable.seasonId, team.seasonId));
+      .where(eq(kotcBattlesTable.seasonId, seasonId));
 
     const battleIds = battles.map((b) => b.id);
     const gamesPlayed = battleIds.length > 0
@@ -3018,15 +3214,16 @@ router.post("/kotc/teams/:teamId/dissolve", requireAuth, async (req, res) => {
       }
     }
 
-    // Zero out lives
-    await db.update(kotcTeamsTable)
+    // Zero out lives for this season's registration only — other seasons this team
+    // is registered for are untouched.
+    await db.update(kotcTeamSeasonsTable)
       .set({ livesBalance: 0, status: "dissolved", updatedAt: new Date() })
-      .where(eq(kotcTeamsTable.id, teamId));
+      .where(eq(kotcTeamSeasonsTable.id, teamSeason.id));
 
-    if (team.livesBalance > 0 || refundIssued) {
+    if (teamSeason.livesBalance > 0 || refundIssued) {
       await db.insert(kotcLifeLedgerTable).values({
-        teamId,
-        delta: -team.livesBalance,
+        teamSeasonId: teamSeason.id,
+        delta: -teamSeason.livesBalance,
         reason: refundIssued ? "dissolution_refund" : "dissolution_forfeit",
         referenceType: "dissolution",
         balanceAfter: 0,
@@ -3034,10 +3231,16 @@ router.post("/kotc/teams/:teamId/dissolve", requireAuth, async (req, res) => {
       });
     }
 
-    // Remove from any active waitlists
-    await db.update(kotcWaitlistTable)
-      .set({ status: "released", releasedAt: new Date(), updatedAt: new Date() } as any)
-      .where(and(eq(kotcWaitlistTable.teamId, teamId), eq(kotcWaitlistTable.status, "waiting")));
+    // Remove from any active waitlists for this season's battles only
+    if (battleIds.length > 0) {
+      await db.update(kotcWaitlistTable)
+        .set({ status: "released", releasedAt: new Date(), updatedAt: new Date() } as any)
+        .where(and(
+          eq(kotcWaitlistTable.teamId, teamId),
+          eq(kotcWaitlistTable.status, "waiting"),
+          inArray(kotcWaitlistTable.battleId, battleIds),
+        ));
+    }
 
     // Notify captain and all players
     const players = await db
@@ -3090,15 +3293,15 @@ router.post("/kotc/battles/:battleId/cancel", requireAdmin, async (req, res) => 
     // Lives automatically carry forward — they stay in team's balance unchanged.
     // Write a carry_forward ledger note so there's an explicit audit trail.
     for (const reg of registrations) {
-      const [team] = await db.select().from(kotcTeamsTable).where(eq(kotcTeamsTable.id, reg.teamId));
-      if (team && team.livesBalance > 0) {
+      const teamSeason = await getTeamSeason(reg.teamId, battle.seasonId);
+      if (teamSeason && teamSeason.livesBalance > 0) {
         await db.insert(kotcLifeLedgerTable).values({
-          teamId: reg.teamId,
+          teamSeasonId: teamSeason.id,
           delta: 0,
           reason: "battle_cancellation_carry_forward",
           referenceType: "kotc_battle",
           referenceId: battleId,
-          balanceAfter: team.livesBalance,
+          balanceAfter: teamSeason.livesBalance,
         });
       }
     }
@@ -3540,6 +3743,9 @@ router.post("/kotc/game-cards/:gameCardId/dispute", requireAdmin, async (req, re
       return void res.status(400).json({ error: "newWinnerTeamId must be one of the teams on this game card" });
     }
 
+    const [disputeBattle] = await db.select().from(kotcBattlesTable).where(eq(kotcBattlesTable.id, gameCard.battleId));
+    if (!disputeBattle) return void res.status(404).json({ error: "Battle not found" });
+
     const previousWinnerId = gameCard.winnerTeamId;
     const previousLoserId = gameCard.loserTeamId;
     const newLoserId = gameCard.team1Id === Number(newWinnerTeamId) ? gameCard.team2Id : gameCard.team1Id;
@@ -3550,14 +3756,14 @@ router.post("/kotc/game-cards/:gameCardId/dispute", requireAdmin, async (req, re
 
     // Reverse the life deduction from the previous loser
     if (previousLoserId) {
-      const [prevLoser] = await db.select().from(kotcTeamsTable).where(eq(kotcTeamsTable.id, previousLoserId));
-      if (prevLoser) {
-        const restoredBalance = prevLoser.livesBalance + 1;
-        await db.update(kotcTeamsTable)
-          .set({ livesBalance: restoredBalance, livesConsumed: Math.max(0, prevLoser.livesConsumed - 1), updatedAt: new Date() })
-          .where(eq(kotcTeamsTable.id, previousLoserId));
+      const prevLoserSeason = await getTeamSeason(previousLoserId, disputeBattle.seasonId);
+      if (prevLoserSeason) {
+        const restoredBalance = prevLoserSeason.livesBalance + 1;
+        await db.update(kotcTeamSeasonsTable)
+          .set({ livesBalance: restoredBalance, livesConsumed: Math.max(0, prevLoserSeason.livesConsumed - 1), updatedAt: new Date() })
+          .where(eq(kotcTeamSeasonsTable.id, prevLoserSeason.id));
         await db.insert(kotcLifeLedgerTable).values({
-          teamId: previousLoserId,
+          teamSeasonId: prevLoserSeason.id,
           delta: 1,
           reason: "dispute_reversal",
           referenceType: "kotc_game_card",
@@ -3569,14 +3775,14 @@ router.post("/kotc/game-cards/:gameCardId/dispute", requireAdmin, async (req, re
     }
 
     // Apply life deduction to the new loser
-    const [newLoser] = await db.select().from(kotcTeamsTable).where(eq(kotcTeamsTable.id, newLoserId));
-    if (newLoser) {
-      const newBalance = Math.max(0, newLoser.livesBalance - 1);
-      await db.update(kotcTeamsTable)
-        .set({ livesBalance: newBalance, livesConsumed: newLoser.livesConsumed + 1, updatedAt: new Date() })
-        .where(eq(kotcTeamsTable.id, newLoserId));
+    const newLoserSeason = await getTeamSeason(newLoserId, disputeBattle.seasonId);
+    if (newLoserSeason) {
+      const newBalance = Math.max(0, newLoserSeason.livesBalance - 1);
+      await db.update(kotcTeamSeasonsTable)
+        .set({ livesBalance: newBalance, livesConsumed: newLoserSeason.livesConsumed + 1, updatedAt: new Date() })
+        .where(eq(kotcTeamSeasonsTable.id, newLoserSeason.id));
       await db.insert(kotcLifeLedgerTable).values({
-        teamId: newLoserId,
+        teamSeasonId: newLoserSeason.id,
         delta: -1,
         reason: "dispute_deduction",
         referenceType: "kotc_game_card",
@@ -3727,6 +3933,11 @@ export async function handleKotcLifePurchase(session: any): Promise<void> {
     console.error("[kotc] handleKotcLifePurchase: team not found:", teamId);
     return;
   }
+  const teamSeason = await getTeamSeason(teamId, seasonId);
+  if (!teamSeason) {
+    console.error("[kotc] handleKotcLifePurchase: team is not registered for season:", teamId, seasonId);
+    return;
+  }
 
   // Idempotency: check if this session was already processed
   const [existingPayment] = await db
@@ -3739,23 +3950,23 @@ export async function handleKotcLifePurchase(session: any): Promise<void> {
     return;
   }
 
-  const newBalance = team.livesBalance + packLives;
+  const newBalance = teamSeason.livesBalance + packLives;
   const priceUsd = packPriceCents / 100;
   const now = new Date();
 
   // Credit lives
-  await db.update(kotcTeamsTable)
+  await db.update(kotcTeamSeasonsTable)
     .set({
       livesBalance: newBalance,
-      firstPurchaseAt: (team as any).firstPurchaseAt ?? now,
-      totalPurchasedCents: ((team as any).totalPurchasedCents ?? 0) + packPriceCents,
+      firstPurchaseAt: teamSeason.firstPurchaseAt ?? now,
+      totalPurchasedCents: (teamSeason.totalPurchasedCents ?? 0) + packPriceCents,
       updatedAt: now,
-    } as any)
-    .where(eq(kotcTeamsTable.id, teamId));
+    })
+    .where(eq(kotcTeamSeasonsTable.id, teamSeason.id));
 
   // Life ledger entry
   await db.insert(kotcLifeLedgerTable).values({
-    teamId,
+    teamSeasonId: teamSeason.id,
     delta: packLives,
     reason: "life_purchase",
     referenceType: "stripe_session",
@@ -3872,6 +4083,8 @@ router.get("/kotc/seasons/:seasonId/waitlist-teams", requireAuth, async (req, re
 router.get("/kotc/teams/:teamId/guardian-cap", requireAuth, async (req, res) => {
   try {
     const teamId = Number(req.params.teamId);
+    const seasonId = req.query.seasonId ? Number(req.query.seasonId) : null;
+    if (!seasonId) return void res.status(400).json({ error: "seasonId query param required" });
     const { userId: clerkId } = getAuth(req);
     const user = await getDbUser(clerkId!);
     if (!user) return void res.status(401).json({ error: "Unauthorized" });
@@ -3880,9 +4093,11 @@ router.get("/kotc/teams/:teamId/guardian-cap", requireAuth, async (req, res) => 
     if (!(await isTeamMemberOrAdmin(teamId, user.id, user.role))) {
       return void res.status(403).json({ error: "Forbidden" });
     }
+    const teamSeason = await getTeamSeason(teamId, seasonId);
+    if (!teamSeason) return void res.status(404).json({ error: "Team is not registered for this season" });
     res.json({
-      guardianSpendingCapCents: (team as any).guardianSpendingCapCents ?? null,
-      totalPurchasedCents: (team as any).totalPurchasedCents ?? 0,
+      guardianSpendingCapCents: teamSeason.guardianSpendingCapCents ?? null,
+      totalPurchasedCents: teamSeason.totalPurchasedCents ?? 0,
     });
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch guardian cap" });
@@ -3944,10 +4159,11 @@ router.get("/kotc/battles/:battleId/live-state", requireAuth, async (req, res) =
         graceExpiresAt: kotcRotationQueuesTable.graceExpiresAt,
         teamName: kotcTeamsTable.name,
         teamColor: kotcTeamsTable.color,
-        livesBalance: kotcTeamsTable.livesBalance,
+        livesBalance: kotcTeamSeasonsTable.livesBalance,
       })
       .from(kotcRotationQueuesTable)
       .leftJoin(kotcTeamsTable, eq(kotcTeamsTable.id, kotcRotationQueuesTable.teamId))
+      .leftJoin(kotcTeamSeasonsTable, and(eq(kotcTeamSeasonsTable.teamId, kotcRotationQueuesTable.teamId), eq(kotcTeamSeasonsTable.seasonId, battle.seasonId)))
       .where(and(
         eq(kotcRotationQueuesTable.battleId, battleId),
         sql`${kotcRotationQueuesTable.status} NOT IN ('bowed_out')`,
@@ -3983,12 +4199,18 @@ router.get("/kotc/teams/:teamId/season-recap", requireAuth, async (req, res) => 
     const [team] = await db.select().from(kotcTeamsTable).where(eq(kotcTeamsTable.id, teamId));
     if (!team) return void res.status(404).json({ error: "Team not found" });
 
-    const [season] = await db.select().from(kotcSeasonsTable).where(eq(kotcSeasonsTable.id, team.seasonId));
+    const requestedSeasonId = req.query.seasonId ? Number(req.query.seasonId) : null;
+    const teamSeason = requestedSeasonId
+      ? await getTeamSeason(teamId, requestedSeasonId)
+      : await getPrimaryTeamSeason(teamId);
+    if (!teamSeason) return void res.status(404).json({ error: "Team is not registered for any season" });
+
+    const [season] = await db.select().from(kotcSeasonsTable).where(eq(kotcSeasonsTable.id, teamSeason.seasonId));
 
     const battles = await db
       .select({ id: kotcBattlesTable.id })
       .from(kotcBattlesTable)
-      .where(eq(kotcBattlesTable.seasonId, team.seasonId));
+      .where(eq(kotcBattlesTable.seasonId, teamSeason.seasonId));
     const battleIds = battles.map((b) => b.id);
 
     const gameCards = battleIds.length > 0
@@ -4033,14 +4255,15 @@ router.get("/kotc/teams/:teamId/season-recap", requireAuth, async (req, res) => 
     const ledger = await db
       .select()
       .from(kotcLifeLedgerTable)
-      .where(eq(kotcLifeLedgerTable.teamId, teamId));
+      .where(eq(kotcLifeLedgerTable.teamSeasonId, teamSeason.id));
     const livesEarned = ledger
       .filter((l) => l.delta > 0 && l.reason !== "life_purchase" && l.reason !== "battle_cancellation_carry_forward")
       .reduce((sum, l) => sum + l.delta, 0);
     const livesLost = ledger.filter((l) => l.delta < 0).reduce((sum, l) => sum + Math.abs(l.delta), 0);
 
     // Rank among all teams in the season by wins (same tiebreak order as leaderboard: wins, then win rate)
-    const allSeasonTeams = await db.select().from(kotcTeamsTable).where(eq(kotcTeamsTable.seasonId, team.seasonId));
+    const allSeasonTeamSeasons = await db.select().from(kotcTeamSeasonsTable).where(eq(kotcTeamSeasonsTable.seasonId, teamSeason.seasonId));
+    const allSeasonTeams = await db.select().from(kotcTeamsTable).where(inArray(kotcTeamsTable.id, allSeasonTeamSeasons.map((ts) => ts.teamId)));
     const allTeamStats = await Promise.all(
       allSeasonTeams.map(async (t) => {
         const cards = battleIds.length > 0
@@ -4064,7 +4287,7 @@ router.get("/kotc/teams/:teamId/season-recap", requireAuth, async (req, res) => 
       teamName: team.name,
       teamColor: team.color,
       seasonName: season?.name ?? null,
-      isReigning: team.isReigning,
+      isReigning: teamSeason.isReigning,
       wins,
       losses,
       totalGames,
@@ -4073,7 +4296,7 @@ router.get("/kotc/teams/:teamId/season-recap", requireAuth, async (req, res) => 
       battlesAttended,
       livesEarned,
       livesLost,
-      livesBalance: team.livesBalance,
+      livesBalance: teamSeason.livesBalance,
       rank: rank || null,
       totalTeams: allSeasonTeams.length,
     });
@@ -4095,10 +4318,16 @@ router.get("/kotc/teams/:teamId/life-ledger", requireAuth, async (req, res) => {
       return void res.status(403).json({ error: "Only team members or admins may view the life ledger" });
     }
 
+    const requestedSeasonId = req.query.seasonId ? Number(req.query.seasonId) : null;
+    const teamSeason = requestedSeasonId
+      ? await getTeamSeason(teamId, requestedSeasonId)
+      : await getPrimaryTeamSeason(teamId);
+    if (!teamSeason) return void res.json([]);
+
     const ledger = await db
       .select()
       .from(kotcLifeLedgerTable)
-      .where(eq(kotcLifeLedgerTable.teamId, teamId))
+      .where(eq(kotcLifeLedgerTable.teamSeasonId, teamSeason.id))
       .orderBy(desc(kotcLifeLedgerTable.createdAt));
     res.json(ledger);
   } catch (err) {

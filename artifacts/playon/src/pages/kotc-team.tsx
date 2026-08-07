@@ -117,16 +117,53 @@ export default function KotcTeamPage() {
   const [selectedBattleId, setSelectedBattleId] = useState<number | null>(null);
   const [showDissolveDlg, setShowDissolveDlg] = useState(false);
   const [showRecap, setShowRecap] = useState(false);
+  const [selectedSeasonId, setSelectedSeasonId] = useState<number | null>(null);
+  const [showRegisterSeason, setShowRegisterSeason] = useState(false);
+  const [registerSeasonId, setRegisterSeasonId] = useState<string>("");
 
   const { data: team, isLoading: teamLoading } = useQuery({
-    queryKey: ["kotc-team", teamId],
+    queryKey: ["kotc-team", teamId, selectedSeasonId],
     queryFn: async () => {
       const token = await getToken();
-      const res = await authFetch(token, `${API}/kotc/teams/${teamId}`);
+      const url = selectedSeasonId
+        ? `${API}/kotc/teams/${teamId}?seasonId=${selectedSeasonId}`
+        : `${API}/kotc/teams/${teamId}`;
+      const res = await authFetch(token, url);
       if (!res.ok) throw new Error("Failed to load team");
       return res.json();
     },
     enabled: !!teamId,
+  });
+
+  // All seasons the app knows about — used to label the season switcher and to let
+  // the captain register this same team for an additional season.
+  const { data: allSeasons = [] } = useQuery({
+    queryKey: ["kotc-seasons-all"],
+    queryFn: async () => {
+      const token = await getToken();
+      const res = await authFetch(token, `${API}/kotc/seasons`);
+      if (!res.ok) return [];
+      return res.json() as Promise<Array<Record<string, unknown>>>;
+    },
+  });
+
+  const registerSeason = useMutation({
+    mutationFn: async (seasonId: number) => {
+      const token = await getToken();
+      const res = await authFetch(token, `${API}/kotc/teams/${teamId}/register-season`, {
+        method: "POST",
+        body: JSON.stringify({ seasonId }),
+      });
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error || "Failed"); }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["kotc-team", teamId] });
+      setShowRegisterSeason(false);
+      setSelectedSeasonId(data.seasonId);
+      toast({ title: "Registered for new season!" });
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
   const { data: rules } = useQuery({
@@ -163,11 +200,11 @@ export default function KotcTeamPage() {
   });
 
   const { data: recap } = useQuery({
-    queryKey: ["kotc-season-recap", teamId],
-    enabled: !!teamId && showRecap,
+    queryKey: ["kotc-season-recap", teamId, team?.seasonId],
+    enabled: !!teamId && showRecap && !!team?.seasonId,
     queryFn: async () => {
       const token = await getToken();
-      const res = await authFetch(token, `${API}/kotc/teams/${teamId}/season-recap`);
+      const res = await authFetch(token, `${API}/kotc/teams/${teamId}/season-recap?seasonId=${team.seasonId}`);
       if (!res.ok) throw new Error("Failed to load recap");
       return res.json() as Promise<{
         teamName: string; teamColor: string | null; seasonName: string | null;
@@ -191,11 +228,11 @@ export default function KotcTeamPage() {
   });
 
   const { data: ledger = [] } = useQuery({
-    queryKey: ["kotc-ledger", teamId],
-    enabled: !!teamId,
+    queryKey: ["kotc-ledger", teamId, team?.seasonId],
+    enabled: !!teamId && !!team?.seasonId,
     queryFn: async () => {
       const token = await getToken();
-      const res = await authFetch(token, `${API}/kotc/teams/${teamId}/life-ledger`);
+      const res = await authFetch(token, `${API}/kotc/teams/${teamId}/life-ledger?seasonId=${team.seasonId}`);
       if (!res.ok) return [];
       return res.json();
     },
@@ -403,7 +440,7 @@ export default function KotcTeamPage() {
       const token = await getToken();
       const res = await authFetch(token, `${API}/kotc/teams/${teamId}/checkout`, {
         method: "POST",
-        body: JSON.stringify({ packIndex }),
+        body: JSON.stringify({ packIndex, seasonId: team?.seasonId }),
       });
       if (!res.ok) { const e = await res.json(); throw new Error(e.error || "Failed"); }
       return res.json();
@@ -470,7 +507,10 @@ export default function KotcTeamPage() {
   const dissolveTeam = useMutation({
     mutationFn: async () => {
       const token = await getToken();
-      const res = await authFetch(token, `${API}/kotc/teams/${teamId}/dissolve`, { method: "POST" });
+      const res = await authFetch(token, `${API}/kotc/teams/${teamId}/dissolve`, {
+        method: "POST",
+        body: JSON.stringify({ seasonId: team?.seasonId }),
+      });
       if (!res.ok) { const e = await res.json(); throw new Error(e.error || "Failed"); }
       return res.json();
     },
@@ -531,9 +571,32 @@ export default function KotcTeamPage() {
                   </span>
                 )}
               </div>
-              {rules?.season?.name && (
-                <p className="text-sm text-muted-foreground mt-0.5">{rules.season.name}</p>
-              )}
+              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                {(team.otherSeasonIds?.length ?? 0) > 0 ? (
+                  <select
+                    className="text-sm bg-transparent text-muted-foreground border border-border rounded px-1.5 py-0.5"
+                    value={team.seasonId}
+                    onChange={(e) => setSelectedSeasonId(Number(e.target.value))}
+                  >
+                    <option value={team.seasonId}>{rules?.season?.name ?? `Season ${team.seasonId}`}</option>
+                    {team.otherSeasonIds.map((sid: number) => (
+                      <option key={sid} value={sid}>
+                        {(allSeasons as Array<Record<string, unknown>>).find((s) => s.id === sid)?.name as string ?? `Season ${sid}`}
+                      </option>
+                    ))}
+                  </select>
+                ) : rules?.season?.name ? (
+                  <p className="text-sm text-muted-foreground">{rules.season.name}</p>
+                ) : null}
+                {team.isCaptainOrAdmin && (
+                  <button
+                    className="text-xs text-amber-500 hover:underline"
+                    onClick={() => setShowRegisterSeason(true)}
+                  >
+                    + Register for another season
+                  </button>
+                )}
+              </div>
               <div className="flex items-center gap-4 mt-1">
                 <div className="flex items-center gap-1.5">
                   <Heart className={`h-4 w-4 ${team.livesBalance <= 1 ? "text-red-400" : team.livesBalance <= 2 ? "text-amber-400" : "text-red-400"}`} />
@@ -959,7 +1022,8 @@ export default function KotcTeamPage() {
           </DialogHeader>
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              This will permanently dissolve your team. All players will be removed.
+              This will dissolve {team?.name}'s registration for {rules?.season?.name ?? "this season"}. All players will be removed from this season's roster.
+              {(team?.otherSeasonIds?.length ?? 0) > 0 && " The team stays intact for its other registered seasons."}
             </p>
             <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3">
               <p className="text-xs font-semibold text-amber-400 mb-1">Refund Policy</p>
@@ -973,6 +1037,46 @@ export default function KotcTeamPage() {
             <Button variant="outline" onClick={() => setShowDissolveDlg(false)}>Cancel</Button>
             <Button variant="destructive" onClick={() => dissolveTeam.mutate()} disabled={dissolveTeam.isPending}>
               {dissolveTeam.isPending ? "Dissolving..." : "Dissolve Team"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showRegisterSeason} onOpenChange={setShowRegisterSeason}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Trophy className="h-5 w-5 text-amber-400" />Register for Another Season
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              {team?.name} will keep its roster and captain — this just adds a new season registration with its own lives and battles.
+            </p>
+            <div>
+              <Label>Season</Label>
+              <select
+                className="w-full mt-1 text-sm bg-transparent border border-border rounded px-2 py-1.5"
+                value={registerSeasonId}
+                onChange={(e) => setRegisterSeasonId(e.target.value)}
+              >
+                <option value="">Select a season</option>
+                {(allSeasons as Array<Record<string, unknown>>)
+                  .filter((s) => s.id !== team?.seasonId && !(team?.otherSeasonIds ?? []).includes(s.id))
+                  .map((s) => (
+                    <option key={String(s.id)} value={String(s.id)}>{String(s.name)}</option>
+                  ))}
+              </select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRegisterSeason(false)}>Cancel</Button>
+            <Button
+              disabled={!registerSeasonId || registerSeason.isPending}
+              onClick={() => registerSeason.mutate(Number(registerSeasonId))}
+              className="bg-amber-500 hover:bg-amber-600 text-black font-bold"
+            >
+              {registerSeason.isPending ? "Registering..." : "Register"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -423,7 +423,7 @@ export default function AdminKingsOfTheCourt() {
       const token = await getToken();
       const res = await authFetch(token, `${API}/kotc/teams/${teamId}/credit-lives`, {
         method: "POST",
-        body: JSON.stringify(data),
+        body: JSON.stringify({ ...data, seasonId: selectedSeasonId }),
       });
       if (!res.ok) throw new Error(await res.text());
       return res.json();

@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, leaguesTable, campsTable, dropinsTable, tournamentsTable, dropinCourtPoolsTable, spotsTable, dropinTemplatesTable, dropinTemplatePoolsTable, dropinOccurrencesTable, kotcSeasonsTable, kotcTeamsTable } from "@workspace/db";
+import { db, leaguesTable, campsTable, dropinsTable, tournamentsTable, dropinCourtPoolsTable, spotsTable, dropinTemplatesTable, dropinTemplatePoolsTable, dropinOccurrencesTable, kotcSeasonsTable, kotcTeamSeasonsTable } from "@workspace/db";
 import { eq, and, inArray, isNull, isNotNull, ne, sql, count } from "drizzle-orm";
 import { ListProgramsQueryParams, ListFeaturedProgramsResponse, ListProgramsResponse } from "@workspace/api-zod";
 
@@ -561,10 +561,10 @@ async function getAllPrograms(opts: GetAllProgramsOptions = {}) {
   const kotcTeamCountMap = new Map<number, number>();
   if (kotcSeasonIds.length) {
     const teamCounts = await db
-      .select({ seasonId: kotcTeamsTable.seasonId, count: count() })
-      .from(kotcTeamsTable)
-      .where(and(inArray(kotcTeamsTable.seasonId, kotcSeasonIds), eq(kotcTeamsTable.status, "active")))
-      .groupBy(kotcTeamsTable.seasonId);
+      .select({ seasonId: kotcTeamSeasonsTable.seasonId, count: count() })
+      .from(kotcTeamSeasonsTable)
+      .where(and(inArray(kotcTeamSeasonsTable.seasonId, kotcSeasonIds), eq(kotcTeamSeasonsTable.status, "active")))
+      .groupBy(kotcTeamSeasonsTable.seasonId);
     for (const row of teamCounts) {
       kotcTeamCountMap.set(row.seasonId, Number(row.count));
     }

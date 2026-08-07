@@ -1,9 +1,9 @@
 import { pgTable, serial, integer, text, timestamp } from "drizzle-orm/pg-core";
-import { kotcTeamsTable } from "./kotcTeams";
+import { kotcTeamSeasonsTable } from "./kotcTeamSeasons";
 
 export const kotcLifeLedgerTable = pgTable("kotc_life_ledger", {
   id: serial("id").primaryKey(),
-  teamId: integer("team_id").notNull().references(() => kotcTeamsTable.id, { onDelete: "cascade" }),
+  teamSeasonId: integer("team_season_id").notNull().references(() => kotcTeamSeasonsTable.id, { onDelete: "cascade" }),
   delta: integer("delta").notNull(),
   reason: text("reason").notNull(),
   referenceType: text("reference_type"),
