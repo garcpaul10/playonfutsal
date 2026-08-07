@@ -824,6 +824,9 @@ router.post("/kotc/teams/:id/invite", requireAuth, async (req, res) => {
 
     const [team] = await db.select().from(kotcTeamsTable).where(eq(kotcTeamsTable.id, teamId));
     if (!team) return void res.status(404).json({ error: "Team not found" });
+    if (team.status === "dissolved") {
+      return void res.status(400).json({ error: "This team has been dissolved and cannot invite players" });
+    }
     if (team.captainUserId !== user.id && user.role !== "admin") {
       return void res.status(403).json({ error: "Only the captain can invite players" });
     }
@@ -1067,7 +1070,7 @@ router.get("/kotc/my-teams", requireAuth, async (req, res) => {
     const teams = await db
       .select()
       .from(kotcTeamsTable)
-      .where(inArray(kotcTeamsTable.id, teamIds));
+      .where(and(inArray(kotcTeamsTable.id, teamIds), sql`${kotcTeamsTable.status} IS DISTINCT FROM 'dissolved'`));
 
     const allPlayers = await db
       .select()
@@ -1100,6 +1103,66 @@ router.get("/kotc/my-teams", requireAuth, async (req, res) => {
   }
 });
 
+router.get("/kotc/my-battle-registrations", requireAuth, async (req, res) => {
+  try {
+    const { userId: clerkId } = getAuth(req);
+    const user = await getDbUser(clerkId!);
+    if (!user) return void res.status(401).json({ error: "Unauthorized" });
+
+    const memberships = await db
+      .select()
+      .from(kotcTeamPlayersTable)
+      .where(and(eq(kotcTeamPlayersTable.userId, user.id), eq(kotcTeamPlayersTable.status, "active")));
+
+    if (memberships.length === 0) return void res.json([]);
+
+    const teamIds = memberships.map((m) => m.teamId);
+    const teams = await db
+      .select()
+      .from(kotcTeamsTable)
+      .where(and(inArray(kotcTeamsTable.id, teamIds), sql`${kotcTeamsTable.status} IS DISTINCT FROM 'dissolved'`));
+    if (teams.length === 0) return void res.json([]);
+
+    const registrations = await db
+      .select()
+      .from(kotcBattleRegistrationsTable)
+      .where(and(
+        inArray(kotcBattleRegistrationsTable.teamId, teams.map((t) => t.id)),
+        eq(kotcBattleRegistrationsTable.status, "registered"),
+      ));
+    if (registrations.length === 0) return void res.json([]);
+
+    const battleIds = [...new Set(registrations.map((r) => r.battleId))];
+    const battles = await db.select().from(kotcBattlesTable).where(inArray(kotcBattlesTable.id, battleIds));
+
+    const seasonIds = [...new Set(battles.map((b) => b.seasonId))];
+    const seasons = seasonIds.length > 0
+      ? await db.select({ id: kotcSeasonsTable.id, name: kotcSeasonsTable.name }).from(kotcSeasonsTable).where(inArray(kotcSeasonsTable.id, seasonIds))
+      : [];
+
+    res.json(registrations
+      .filter((r) => battles.some((b) => b.id === r.battleId) && String(battles.find((b) => b.id === r.battleId)?.status) !== "completed" && String(battles.find((b) => b.id === r.battleId)?.status) !== "cancelled")
+      .map((r) => {
+        const battle = battles.find((b) => b.id === r.battleId)!;
+        const team = teams.find((t) => t.id === r.teamId)!;
+        return {
+          registrationId: r.id,
+          battleId: battle.id,
+          scheduledAt: battle.scheduledAt,
+          battleStatus: battle.status,
+          courtNumber: r.courtNumber,
+          teamId: team.id,
+          teamName: team.name,
+          teamColor: team.color,
+          seasonName: seasons.find((s) => s.id === battle.seasonId)?.name ?? null,
+        };
+      })
+      .sort((a, b) => new Date(a.scheduledAt as any).getTime() - new Date(b.scheduledAt as any).getTime()));
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch battle registrations" });
+  }
+});
+
 // ─── Battle Registration ──────────────────────────────────────────────────────
 
 router.post("/kotc/battles/:battleId/register", requireAuth, async (req, res) => {
@@ -1114,6 +1177,9 @@ router.post("/kotc/battles/:battleId/register", requireAuth, async (req, res) =>
 
     const [team] = await db.select().from(kotcTeamsTable).where(eq(kotcTeamsTable.id, Number(teamId)));
     if (!team) return void res.status(404).json({ error: "Team not found" });
+    if (team.status === "dissolved") {
+      return void res.status(400).json({ error: "This team has been dissolved and cannot register for battles" });
+    }
     if (team.captainUserId !== user.id && user.role !== "admin") {
       return void res.status(403).json({ error: "Only the captain can register the team" });
     }

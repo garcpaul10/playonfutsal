@@ -137,6 +137,19 @@ function ActivityTab() {
     staleTime: 60_000,
   });
 
+  const { data: kotcBattles } = useQuery<any[]>({
+    queryKey: ["my-kotc-battle-registrations"],
+    queryFn: async () => {
+      const token = await getToken();
+      const res = await fetch(`${API_BASE}/kotc/my-battle-registrations`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    staleTime: 60_000,
+  });
+
   const allRegs = registrations ?? [];
   const active = allRegs.filter((r: any) => r.status !== "cancelled");
   const upcoming = active.slice(0, 10);
@@ -164,6 +177,35 @@ function ActivityTab() {
           </Link>
         ))}
       </div>
+
+      {/* KotC battle registrations */}
+      {kotcBattles && kotcBattles.length > 0 && (
+        <section className="space-y-3">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+            <Crown className="h-4 w-4" /> My Kings of the Court Battles
+          </h3>
+          <div className="space-y-2">
+            {kotcBattles.map((reg: any) => (
+              <Link key={reg.registrationId} href={`/kotc/teams/${reg.teamId}`}>
+                <div className="bg-card rounded-xl border border-border p-4 border-l-4 border-l-amber-500 hover:border-primary/40 hover:bg-primary/5 transition-all cursor-pointer">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-sm truncate">{reg.teamName} · Court {reg.courtNumber}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {reg.seasonName ? `${reg.seasonName} · ` : ""}
+                        {format(new Date(reg.scheduledAt), "EEE, MMM d")} · {formatEastern(new Date(reg.scheduledAt), "h:mm a 'ET'")}
+                      </p>
+                    </div>
+                    <Badge variant="outline" className={`text-[10px] capitalize shrink-0 ${reg.battleStatus === "active" ? "bg-green-500/15 text-green-600 border-green-500/30" : ""}`}>
+                      {reg.battleStatus === "active" ? "Live" : "Registered"}
+                    </Badge>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Drop-in spots */}
       {upcomingDropins.length > 0 && (
