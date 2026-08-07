@@ -700,6 +700,20 @@ router.get("/kotc/teams/:id", requireAuth, async (req, res) => {
   }
 });
 
+// True if the user is already active/invited on some team in this season (optionally excluding one team)
+async function isUserOnTeamInSeason(userId: number, seasonId: number, excludeTeamId?: number): Promise<boolean> {
+  const rows = await db
+    .select({ teamId: kotcTeamPlayersTable.teamId })
+    .from(kotcTeamPlayersTable)
+    .innerJoin(kotcTeamsTable, eq(kotcTeamsTable.id, kotcTeamPlayersTable.teamId))
+    .where(and(
+      eq(kotcTeamPlayersTable.userId, userId),
+      eq(kotcTeamsTable.seasonId, seasonId),
+      inArray(kotcTeamPlayersTable.status, ["active", "invited"]),
+    ));
+  return rows.some((r) => r.teamId !== excludeTeamId);
+}
+
 router.post("/kotc/seasons/:seasonId/teams", requireAuth, async (req, res) => {
   try {
     const seasonId = Number(req.params.seasonId);
@@ -709,6 +723,10 @@ router.post("/kotc/seasons/:seasonId/teams", requireAuth, async (req, res) => {
 
     const [season] = await db.select().from(kotcSeasonsTable).where(eq(kotcSeasonsTable.id, seasonId));
     if (!season) return void res.status(404).json({ error: "Season not found" });
+
+    if (await isUserOnTeamInSeason(user.id, seasonId)) {
+      return void res.status(409).json({ error: "You're already on a team registered for this season" });
+    }
 
     // Youth guardian prerequisite: season is youth if flagged OR if age bracket is U18 or below
     const seasonIsYouth = (season as Record<string, unknown>).isYouth ||
@@ -856,6 +874,10 @@ router.post("/kotc/teams/:id/invite", requireAuth, async (req, res) => {
 
     if (existing) return void res.status(409).json({ error: "Player already on team" });
 
+    if (await isUserOnTeamInSeason(invitee.id, team.seasonId)) {
+      return void res.status(409).json({ error: "This player is already on another team registered for this season" });
+    }
+
     // Roster cap: count active + already-invited players (pending invites reserve a roster slot)
     const maxRosterSize = (season as Record<string, unknown>).maxRosterSize as number | null;
     if (maxRosterSize) {
@@ -931,6 +953,13 @@ router.post("/kotc/team-invites/:id/accept", requireAuth, async (req, res) => {
     const [invite] = await db.select().from(kotcTeamPlayersTable).where(eq(kotcTeamPlayersTable.id, id));
     if (!invite) return void res.status(404).json({ error: "Invite not found" });
     if (invite.userId !== user.id) return void res.status(403).json({ error: "Forbidden" });
+
+    const [team] = await db.select().from(kotcTeamsTable).where(eq(kotcTeamsTable.id, invite.teamId));
+    if (!team) return void res.status(404).json({ error: "Team not found" });
+
+    if (await isUserOnTeamInSeason(user.id, team.seasonId, team.id)) {
+      return void res.status(409).json({ error: "You're already on another team registered for this season" });
+    }
 
     const [updated] = await db
       .update(kotcTeamPlayersTable)
