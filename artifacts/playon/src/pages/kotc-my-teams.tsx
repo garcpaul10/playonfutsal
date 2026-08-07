@@ -152,11 +152,11 @@ export default function KotcMyTeamsPage() {
               <Trophy className="h-4 w-4 mr-1" />
               Leaderboard
             </Button>
-            {activeSeason && (
+            {(seasons as Array<Record<string, unknown>>).length > 0 && (
               <Button
                 size="sm"
                 onClick={() => ensureProfile(() => {
-                  setSelectedSeasonId(String(activeSeason.id));
+                  setSelectedSeasonId("");
                   setShowCreate(true);
                 })}
                 className="bg-amber-500 hover:bg-amber-600 text-black font-bold"
@@ -172,7 +172,7 @@ export default function KotcMyTeamsPage() {
           <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-2.5 flex items-center gap-2">
             <Swords className="h-4 w-4 text-amber-400 flex-shrink-0" />
             <p className="text-sm text-amber-200">
-              Active season: <span className="font-bold">{String(activeSeason.name)}</span>
+              Currently active: <span className="font-bold">{String(activeSeason.name)}</span>
               <span className="text-amber-400/70 ml-2">· {String(activeSeason.sport).toUpperCase()}</span>
             </p>
           </div>
@@ -242,10 +242,10 @@ export default function KotcMyTeamsPage() {
               <p className="text-sm text-muted-foreground">
                 Create a team to start competing in Kings of the Court.
               </p>
-              {activeSeason && (
+              {(seasons as Array<Record<string, unknown>>).length > 0 && (
                 <Button
                   onClick={() => ensureProfile(() => {
-                    setSelectedSeasonId(String(activeSeason.id));
+                    setSelectedSeasonId("");
                     setShowCreate(true);
                   })}
                   className="mt-2 bg-amber-500 hover:bg-amber-600 text-black font-bold"
@@ -311,21 +311,19 @@ export default function KotcMyTeamsPage() {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
-            {(seasons as Array<Record<string, unknown>>).length > 1 && (
-              <div>
-                <Label>Season</Label>
-                <Select value={selectedSeasonId} onValueChange={setSelectedSeasonId}>
-                  <SelectTrigger className="mt-1"><SelectValue placeholder="Select season" /></SelectTrigger>
-                  <SelectContent>
-                    {(seasons as Array<Record<string, unknown>>).map((s) => (
-                      <SelectItem key={String(s.id)} value={String(s.id)}>
-                        {String(s.name)} {s.status === "active" ? "· Active" : ""}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+            <div>
+              <Label>Season</Label>
+              <Select value={selectedSeasonId} onValueChange={setSelectedSeasonId}>
+                <SelectTrigger className="mt-1"><SelectValue placeholder="Select a season" /></SelectTrigger>
+                <SelectContent>
+                  {(seasons as Array<Record<string, unknown>>).map((s) => (
+                    <SelectItem key={String(s.id)} value={String(s.id)}>
+                      {String(s.name)} {s.status === "active" ? "· Active" : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div>
               <Label>Team Name</Label>
               <Input
