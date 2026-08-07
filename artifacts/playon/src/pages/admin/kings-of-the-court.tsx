@@ -544,11 +544,38 @@ export default function AdminKingsOfTheCourt() {
             <p className="text-sm text-muted-foreground">Manage seasons, battles, and the rotation engine</p>
           </div>
         </div>
-        <Button onClick={() => setLocation("/admin/kotc/new")} className="gap-2">
-          <Plus className="h-4 w-4" />
-          New Season
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={() => {
+              setLifePacksJson(JSON.stringify(kotcSettings?.lifePacks ?? [], null, 2));
+              setWaitlistWindowInput(kotcSettings?.waitlistWindowMinutes ?? 15);
+              setMaxRosterSizeInput(kotcSettings?.maxRosterSize ?? 5);
+              setGracePeriodInput(kotcSettings?.gracePeriodSeconds ?? 60);
+              setLivesRequiredInput(kotcSettings?.livesRequired ?? 1);
+              setShowLifePacksForm(true);
+            }}
+          >
+            <Settings className="h-4 w-4" />
+            KotC Settings
+          </Button>
+          <Button onClick={() => setLocation("/admin/kotc/new")} className="gap-2">
+            <Plus className="h-4 w-4" />
+            New Season
+          </Button>
+        </div>
       </div>
+
+      <Card className="bg-muted/30">
+        <CardContent className="py-3 flex flex-wrap items-center gap-x-6 gap-y-1 text-sm">
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Platform-wide (every division)</span>
+          <span className="text-foreground">Roster cap: <span className="font-medium">{kotcSettings?.maxRosterSize ?? "—"}</span></span>
+          <span className="text-foreground">Grace period: <span className="font-medium">{kotcSettings?.gracePeriodSeconds ?? "—"}s</span></span>
+          <span className="text-foreground">Lives required: <span className="font-medium">{kotcSettings?.livesRequired ?? "—"}</span></span>
+          <span className="text-foreground">Life packs: <span className="font-medium">{kotcSettings?.lifePacks?.length ?? 0}</span></span>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
         {seasonsLoading ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-16" />) : null}
@@ -1044,53 +1071,6 @@ export default function AdminKingsOfTheCourt() {
                     </div>
                   ))}
                 </dl>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base flex items-center justify-between">
-                  <span className="flex items-center gap-2"><ShoppingBag className="h-4 w-4 text-green-400" />KotC Settings <span className="text-xs font-normal text-muted-foreground">(applies to every division)</span></span>
-                  <Button size="sm" variant="outline" onClick={() => {
-                    setLifePacksJson(JSON.stringify(kotcSettings?.lifePacks ?? [], null, 2));
-                    setWaitlistWindowInput(kotcSettings?.waitlistWindowMinutes ?? 15);
-                    setMaxRosterSizeInput(kotcSettings?.maxRosterSize ?? 5);
-                    setGracePeriodInput(kotcSettings?.gracePeriodSeconds ?? 60);
-                    setLivesRequiredInput(kotcSettings?.livesRequired ?? 1);
-                    setShowLifePacksForm(true);
-                  }} className="gap-2">
-                    <Edit2 className="h-3.5 w-3.5" />Edit
-                  </Button>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <dl className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
-                  <div>
-                    <dt className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Max Roster Size</dt>
-                    <dd className="mt-1 text-sm font-medium text-foreground">{kotcSettings?.maxRosterSize ?? "—"}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Grace Period</dt>
-                    <dd className="mt-1 text-sm font-medium text-foreground">{kotcSettings?.gracePeriodSeconds ?? "—"}s</dd>
-                  </div>
-                  <div>
-                    <dt className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Lives Required</dt>
-                    <dd className="mt-1 text-sm font-medium text-foreground">{kotcSettings?.livesRequired ?? "—"}</dd>
-                  </div>
-                </dl>
-                {(kotcSettings?.lifePacks ?? []).length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No life packs configured. Teams can only receive admin-credited lives.</p>
-                ) : (
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {(kotcSettings!.lifePacks).map((pack, i) => (
-                      <div key={i} className="rounded-xl border border-border bg-card p-3">
-                        <p className="font-semibold text-sm text-foreground">{pack.name}</p>
-                        <p className="text-xs text-muted-foreground mt-1">{pack.lives} lives · ${(pack.priceCents / 100).toFixed(2)}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <p className="text-xs text-muted-foreground mt-3">Waitlist lock window: {kotcSettings?.waitlistWindowMinutes ?? 15} min before battle start</p>
               </CardContent>
             </Card>
           </TabsContent>
