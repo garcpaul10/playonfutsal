@@ -74,6 +74,16 @@ export default function KotcSeasonDetailPage() {
     enabled: !!seasonId,
   });
 
+  const { data: kotcSettings } = useQuery({
+    queryKey: ["kotc-settings"],
+    queryFn: async () => {
+      const token = await getToken().catch(() => null);
+      const res = await authFetch(token, `${API}/kotc/settings`);
+      if (!res.ok) return null;
+      return res.json() as Promise<{ livesRequired: number; gracePeriodSeconds: number; lifePacks: Array<{ name: string; lives: number; priceCents: number }> }>;
+    },
+  });
+
   const sendJoinRequest = useMutation({
     mutationFn: async (teamId: number) => {
       const token = await getToken();
@@ -120,7 +130,7 @@ export default function KotcSeasonDetailPage() {
     );
   }
 
-  const lifePacks: Array<{ name: string; lives: number; priceCents: number }> = Array.isArray(season.lifePacks) ? season.lifePacks : [];
+  const lifePacks: Array<{ name: string; lives: number; priceCents: number }> = kotcSettings?.lifePacks ?? [];
   const upcomingBattles = (battles as any[]).filter((b: any) => b.status === "scheduled" || b.status === "upcoming").slice(0, 5);
   const openTeams = (teams as any[]).filter((t: any) => t.status === "active" && (t.players?.filter((p: any) => p.status === "active").length ?? 0) < (season.teamSize ?? 4));
 
@@ -161,7 +171,7 @@ export default function KotcSeasonDetailPage() {
             </div>
             <div className="rounded-xl bg-white/5 border border-white/10 p-3 text-center">
               <Heart className="h-4 w-4 text-red-400 mx-auto mb-1" />
-              <p className="text-lg font-bold text-foreground">{season.livesRequired}</p>
+              <p className="text-lg font-bold text-foreground">{kotcSettings?.livesRequired ?? "—"}</p>
               <p className="text-xs text-muted-foreground">lives to play</p>
             </div>
             <div className="rounded-xl bg-white/5 border border-white/10 p-3 text-center">
@@ -218,10 +228,10 @@ export default function KotcSeasonDetailPage() {
           <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-3 text-sm text-muted-foreground">
             <p><span className="text-foreground font-semibold">Team Size:</span> {season.teamSize} players per team</p>
             <p><span className="text-foreground font-semibold">Win Condition:</span> {season.winCondition === "points" ? `First to ${season.winTarget} points` : `${season.timeLimitMinutes}-minute time limit`}</p>
-            <p><span className="text-foreground font-semibold">Lives System:</span> Each team needs {season.livesRequired} lives to register for a battle. Winning preserves lives; losing costs one. When you run out, purchase more to keep competing.</p>
+            <p><span className="text-foreground font-semibold">Lives System:</span> Each team needs {kotcSettings?.livesRequired ?? 1} lives to register for a battle. Winning preserves lives; losing costs one. When you run out, purchase more to keep competing.</p>
             <p><span className="text-foreground font-semibold">Court Rotation:</span> The winning team stays on the court and challenges the next team in the queue.</p>
-            {season.gracePeriodSeconds > 0 && (
-              <p><span className="text-foreground font-semibold">Grace Period:</span> {season.gracePeriodSeconds}s grace period for late arrivals at the start of a battle.</p>
+            {!!kotcSettings?.gracePeriodSeconds && kotcSettings.gracePeriodSeconds > 0 && (
+              <p><span className="text-foreground font-semibold">Grace Period:</span> {kotcSettings.gracePeriodSeconds}s grace period for late arrivals at the start of a battle.</p>
             )}
           </div>
         </div>

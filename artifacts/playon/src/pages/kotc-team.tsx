@@ -262,6 +262,16 @@ export default function KotcTeamPage() {
     },
   });
 
+  const { data: kotcSettings } = useQuery({
+    queryKey: ["kotc-settings"],
+    queryFn: async () => {
+      const token = await getToken();
+      const res = await authFetch(token, `${API}/kotc/settings`);
+      if (!res.ok) return null;
+      return res.json() as Promise<{ maxRosterSize: number }>;
+    },
+  });
+
   const { data: pendingPurchases = [] } = useQuery({
     queryKey: ["kotc-pending-purchases", teamId],
     enabled: !!teamId,
@@ -310,7 +320,7 @@ export default function KotcTeamPage() {
     ? team?.players?.find((p: Record<string, unknown>) => Number(p.userId) === myProfile.userId)
     : undefined;
   const needsAcknowledgment = myMember && !myMember.rulesAcknowledgedAt;
-  const maxRosterSize: number | null = rules?.season?.maxRosterSize ?? null;
+  const maxRosterSize: number | null = kotcSettings?.maxRosterSize ?? null;
   const rosterOccupiedCount = (team?.players ?? []).filter(
     (p: Record<string, unknown>) => p.status === "active" || p.status === "invited"
   ).length;

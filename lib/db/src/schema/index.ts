@@ -78,6 +78,7 @@ export * from "./dropinOccurrences";
 export * from "./dropinOccurrenceOverrides";
 export * from "./dropinPoolPresets";
 export * from "./kotcSeasons";
+export * from "./kotcSettings";
 export * from "./kotcBattles";
 export * from "./kotcTeams";
 export * from "./kotcTeamSeasons";

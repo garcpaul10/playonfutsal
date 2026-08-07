@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, leaguesTable, campsTable, dropinsTable, tournamentsTable, dropinCourtPoolsTable, spotsTable, dropinTemplatesTable, dropinTemplatePoolsTable, dropinOccurrencesTable, kotcSeasonsTable, kotcTeamSeasonsTable } from "@workspace/db";
+import { db, leaguesTable, campsTable, dropinsTable, tournamentsTable, dropinCourtPoolsTable, spotsTable, dropinTemplatesTable, dropinTemplatePoolsTable, dropinOccurrencesTable, kotcSeasonsTable, kotcTeamSeasonsTable, kotcSettingsTable } from "@workspace/db";
 import { eq, and, inArray, isNull, isNotNull, ne, sql, count } from "drizzle-orm";
 import { ListProgramsQueryParams, ListFeaturedProgramsResponse, ListProgramsResponse } from "@workspace/api-zod";
 
@@ -570,11 +570,14 @@ async function getAllPrograms(opts: GetAllProgramsOptions = {}) {
     }
   }
 
+  // Life pack pricing is a global KotC setting now, shared across every division.
+  const [kotcSettingsRow] = kotcSeasons.length ? await db.select().from(kotcSettingsTable).limit(1) : [];
+  const globalLifePacks: Array<{ priceCents: number }> = Array.isArray(kotcSettingsRow?.lifePacks) ? kotcSettingsRow.lifePacks as any : [];
+  const minLifePrice = globalLifePacks.length
+    ? Math.min(...globalLifePacks.map((p) => Number(p.priceCents ?? 0))) / 100
+    : 0;
+
   const kotcPrograms = (kotcSeasons as any[]).map((s) => {
-    const lifePacks: Array<{ priceCents: number }> = Array.isArray(s.lifePacks) ? s.lifePacks : [];
-    const minLifePrice = lifePacks.length
-      ? Math.min(...lifePacks.map((p) => Number(p.priceCents ?? 0))) / 100
-      : 0;
     const teamCount = kotcTeamCountMap.get(s.id) ?? 0;
     const startDate = s.startsAt ? new Date(s.startsAt).toISOString().split("T")[0] : new Date().toISOString().split("T")[0];
     const endDate = s.endsAt ? new Date(s.endsAt).toISOString().split("T")[0] : null;

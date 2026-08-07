@@ -1,10 +1,12 @@
 /**
- * KotC Season Edit Wizard — pre-populates all 6 steps from existing season data.
+ * KotC Division Edit Wizard — pre-populates all steps from existing division data.
  *
  * Reuses all step components from new.tsx.
- * Existing battles are listed in Step 5 for reference; edit or delete them from the
- * season's Battles tab on the admin dashboard (admin/kings-of-the-court.tsx). New
+ * Existing battles are listed in Step 4 for reference; edit or delete them from the
+ * division's Battles tab on the admin dashboard (admin/kings-of-the-court.tsx). New
  * battle cards can be added here.
+ * Roster size, grace period, lives-to-register, and life pack pricing are platform-wide
+ * now — edit them from KotC Settings on the dashboard, not here.
  * Save fires PATCH /api/kotc/seasons/:id then POSTs any new battle cards.
  */
 
@@ -22,14 +24,13 @@ import {
   defaultWizardState,
   Step1Basics,
   Step2MatchRules,
-  Step3Registration,
   Step4Dates,
   Step5Battles,
   Step6Review,
 } from "./new";
 
 const API = (import.meta.env.VITE_API_URL ?? "https://workspaceapi-server-production-3488.up.railway.app").replace(/\/$/, "") + "/api";
-const STEPS = ["Basics", "Match Rules", "Registration", "Dates", "Battles", "Review"];
+const STEPS = ["Basics", "Match Rules", "Dates", "Battles", "Review"];
 
 function useAuthHeaders() {
   const { getToken } = useAuth();
@@ -45,21 +46,13 @@ function seasonToWizardState(season: any): WizardState {
     ...base,
     name: season.name ?? "",
     sport: season.sport ?? "basketball",
-    venueId: season.venueId ? String(season.venueId) : "",
     genderBracket: season.genderBracket ?? "coed",
     ageBracket: season.ageBracket ?? "open",
     notes: season.notes ?? "",
     winMode: (season.winCondition === "time_limit" ? "time_limit" : "points") as WizardState["winMode"],
     winTarget: String(season.winTarget ?? 7),
     timeLimitMinutes: String(season.timeLimitMinutes ?? 5),
-    gracePeriodSeconds: String(season.gracePeriodSeconds ?? 60),
     teamSize: String(season.teamSize ?? 4),
-    maxRosterSize: season.maxRosterSize ? String(season.maxRosterSize) : "",
-    livesRequired: String(season.livesRequired ?? 3),
-    maxTeamsPerCourt: String(season.maxTeamsPerCourt ?? 8),
-    lifePacksJson: season.lifePacks?.length
-      ? JSON.stringify(season.lifePacks, null, 2)
-      : base.lifePacksJson,
     startsAt: season.startsAt
       ? new Date(season.startsAt).toISOString().slice(0, 16)
       : "",
@@ -159,10 +152,9 @@ export default function KotcEditPage() {
   const canProceed: Record<number, boolean> = {
     0: !!state.name.trim(),
     1: !!state.winTarget,
-    2: true,
-    3: !endInvalid,
+    2: !endInvalid,
+    3: true,
     4: true,
-    5: true,
   };
 
   async function handleSaveChanges() {
@@ -170,42 +162,27 @@ export default function KotcEditPage() {
     try {
       const headers = await getHeaders();
 
-      let lifePacks: any;
-      try {
-        lifePacks = state.lifePacksJson.trim() ? JSON.parse(state.lifePacksJson) : [];
-      } catch {
-        toast({ title: "Invalid life pack JSON", variant: "destructive" });
-        setIsSaving(false);
-        return;
-      }
-
       const r = await fetch(`${API}/kotc/seasons/${seasonId}`, {
         method: "PATCH",
         headers,
         body: JSON.stringify({
           name: state.name,
           sport: state.sport,
-          venueId: state.venueId ? Number(state.venueId) : null,
           genderBracket: state.genderBracket,
           ageBracket: state.ageBracket,
           teamSize: Number(state.teamSize),
-          maxRosterSize: state.maxRosterSize.trim() ? Number(state.maxRosterSize) : null,
           winCondition: state.winMode,
           winTarget: Number(state.winTarget),
           timeLimitMinutes: state.winMode === "time_limit" ? Number(state.timeLimitMinutes) : undefined,
-          gracePeriodSeconds: Number(state.gracePeriodSeconds),
-          livesRequired: Number(state.livesRequired),
-          maxTeamsPerCourt: Number(state.maxTeamsPerCourt),
           startsAt: state.startsAt || null,
           endsAt: state.endsAt || null,
           notes: state.notes || null,
-          lifePacks,
         }),
       });
 
       if (!r.ok) {
-        const err = await r.json().catch(() => ({ error: "Failed to update season" }));
-        throw new Error(err.error ?? "Failed to update season");
+        const err = await r.json().catch(() => ({ error: "Failed to update division" }));
+        throw new Error(err.error ?? "Failed to update division");
       }
 
       for (const battle of state.battles) {
@@ -215,6 +192,7 @@ export default function KotcEditPage() {
           headers,
           body: JSON.stringify({
             scheduledAt: battle.scheduledAt,
+            venueId: state.venueId ? Number(state.venueId) : null,
             courtIds: battle.courtIds.length > 0 ? battle.courtIds : undefined,
             maxTeamsPerCourt: Number(battle.maxTeamsPerCourt),
             durationMinutes: Number(battle.durationMinutes),
@@ -225,7 +203,7 @@ export default function KotcEditPage() {
 
       publishedRef.current = true;
       clearDraft();
-      toast({ title: "Season saved!" });
+      toast({ title: "Division saved!" });
       setLocation("/admin/kings-of-the-court");
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
@@ -248,7 +226,7 @@ export default function KotcEditPage() {
 
   return (
     <WizardShell
-      title="Edit KotC Season"
+      title="Edit KotC Division"
       backHref="/admin/kings-of-the-court"
       steps={STEPS}
       step={step}
@@ -267,9 +245,8 @@ export default function KotcEditPage() {
     >
       {step === 0 && <Step1Basics state={state} onChange={onChange} venues={venues} />}
       {step === 1 && <Step2MatchRules state={state} onChange={onChange} />}
-      {step === 2 && <Step3Registration state={state} onChange={onChange} />}
-      {step === 3 && <Step4Dates state={state} onChange={onChange} />}
-      {step === 4 && (
+      {step === 2 && <Step4Dates state={state} onChange={onChange} />}
+      {step === 3 && (
         <Step5Battles
           state={state}
           onChange={onChange}
@@ -277,7 +254,7 @@ export default function KotcEditPage() {
           existingBattles={existingBattles}
         />
       )}
-      {step === 5 && (
+      {step === 4 && (
         <Step6Review state={state} venues={venues} courts={courts} isEditMode={true} />
       )}
     </WizardShell>

@@ -72,6 +72,9 @@ export default function AdminKingsOfTheCourt() {
   const [showLifePacksForm, setShowLifePacksForm] = useState(false);
   const [lifePacksJson, setLifePacksJson] = useState("");
   const [waitlistWindowInput, setWaitlistWindowInput] = useState(15);
+  const [maxRosterSizeInput, setMaxRosterSizeInput] = useState(5);
+  const [gracePeriodInput, setGracePeriodInput] = useState(60);
+  const [livesRequiredInput, setLivesRequiredInput] = useState(1);
   const [showWaitlist, setShowWaitlist] = useState<number | null>(null);
   const [disputeCardId, setDisputeCardId] = useState<number | null>(null);
   const [disputeForm, setDisputeForm] = useState({ newWinnerTeamId: "", overrideNotes: "" });
@@ -92,6 +95,19 @@ export default function AdminKingsOfTheCourt() {
       const res = await authFetch(token, `${API}/kotc/seasons`);
       if (!res.ok) throw new Error("Failed to load seasons");
       return res.json();
+    },
+  });
+
+  const { data: kotcSettings } = useQuery({
+    queryKey: ["kotc-settings"],
+    queryFn: async () => {
+      const token = await getToken();
+      const res = await authFetch(token, `${API}/kotc/settings`);
+      if (!res.ok) return null;
+      return res.json() as Promise<{
+        maxRosterSize: number; gracePeriodSeconds: number; livesRequired: number;
+        waitlistWindowMinutes: number; lifePacks: Array<{ name: string; lives: number; priceCents: number }>;
+      }>;
     },
   });
 
@@ -403,15 +419,21 @@ export default function AdminKingsOfTheCourt() {
       let parsed;
       try { parsed = JSON.parse(lifePacksJson); } catch { throw new Error("Invalid JSON for life packs"); }
       const token = await getToken();
-      const res = await authFetch(token, `${API}/kotc/seasons/${selectedSeasonId}`, {
+      const res = await authFetch(token, `${API}/kotc/settings`, {
         method: "PATCH",
-        body: JSON.stringify({ lifePacks: parsed, waitlistWindowMinutes: waitlistWindowInput }),
+        body: JSON.stringify({
+          lifePacks: parsed,
+          waitlistWindowMinutes: waitlistWindowInput,
+          maxRosterSize: maxRosterSizeInput,
+          gracePeriodSeconds: gracePeriodInput,
+          livesRequired: livesRequiredInput,
+        }),
       });
       if (!res.ok) throw new Error(await res.text());
       return res.json();
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["kotc-seasons"] });
+      qc.invalidateQueries({ queryKey: ["kotc-settings"] });
       toast({ title: "Life packs saved!" });
       setShowLifePacksForm(false);
     },
@@ -1015,9 +1037,6 @@ export default function AdminKingsOfTheCourt() {
                     { label: "Team Size", value: `${selectedSeason.teamSize}v${selectedSeason.teamSize}` },
                     { label: "Win Target", value: `${selectedSeason.winTarget} ${selectedSeason.winCondition}` },
                     { label: "Time Limit", value: `${selectedSeason.timeLimitMinutes} min` },
-                    { label: "Grace Period", value: `${selectedSeason.gracePeriodSeconds}s` },
-                    { label: "Lives Required", value: selectedSeason.livesRequired },
-                    { label: "Max Teams/Court", value: selectedSeason.maxTeamsPerCourt },
                   ].map(({ label, value }) => (
                     <div key={label}>
                       <dt className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{label}</dt>
@@ -1031,10 +1050,13 @@ export default function AdminKingsOfTheCourt() {
             <Card>
               <CardHeader>
                 <CardTitle className="text-base flex items-center justify-between">
-                  <span className="flex items-center gap-2"><ShoppingBag className="h-4 w-4 text-green-400" />Life Packs</span>
+                  <span className="flex items-center gap-2"><ShoppingBag className="h-4 w-4 text-green-400" />KotC Settings <span className="text-xs font-normal text-muted-foreground">(applies to every division)</span></span>
                   <Button size="sm" variant="outline" onClick={() => {
-                    setLifePacksJson(JSON.stringify((selectedSeason as any).lifePacks ?? [], null, 2));
-                    setWaitlistWindowInput((selectedSeason as any).waitlistWindowMinutes ?? 15);
+                    setLifePacksJson(JSON.stringify(kotcSettings?.lifePacks ?? [], null, 2));
+                    setWaitlistWindowInput(kotcSettings?.waitlistWindowMinutes ?? 15);
+                    setMaxRosterSizeInput(kotcSettings?.maxRosterSize ?? 5);
+                    setGracePeriodInput(kotcSettings?.gracePeriodSeconds ?? 60);
+                    setLivesRequiredInput(kotcSettings?.livesRequired ?? 1);
                     setShowLifePacksForm(true);
                   }} className="gap-2">
                     <Edit2 className="h-3.5 w-3.5" />Edit
@@ -1042,11 +1064,25 @@ export default function AdminKingsOfTheCourt() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {((selectedSeason as any).lifePacks ?? []).length === 0 ? (
+                <dl className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
+                  <div>
+                    <dt className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Max Roster Size</dt>
+                    <dd className="mt-1 text-sm font-medium text-foreground">{kotcSettings?.maxRosterSize ?? "—"}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Grace Period</dt>
+                    <dd className="mt-1 text-sm font-medium text-foreground">{kotcSettings?.gracePeriodSeconds ?? "—"}s</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Lives Required</dt>
+                    <dd className="mt-1 text-sm font-medium text-foreground">{kotcSettings?.livesRequired ?? "—"}</dd>
+                  </div>
+                </dl>
+                {(kotcSettings?.lifePacks ?? []).length === 0 ? (
                   <p className="text-sm text-muted-foreground">No life packs configured. Teams can only receive admin-credited lives.</p>
                 ) : (
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {((selectedSeason as any).lifePacks as Array<{ name: string; lives: number; priceCents: number }>).map((pack, i) => (
+                    {(kotcSettings!.lifePacks).map((pack, i) => (
                       <div key={i} className="rounded-xl border border-border bg-card p-3">
                         <p className="font-semibold text-sm text-foreground">{pack.name}</p>
                         <p className="text-xs text-muted-foreground mt-1">{pack.lives} lives · ${(pack.priceCents / 100).toFixed(2)}</p>
@@ -1054,7 +1090,7 @@ export default function AdminKingsOfTheCourt() {
                     ))}
                   </div>
                 )}
-                <p className="text-xs text-muted-foreground mt-3">Waitlist lock window: {(selectedSeason as any).waitlistWindowMinutes ?? 15} min before battle start</p>
+                <p className="text-xs text-muted-foreground mt-3">Waitlist lock window: {kotcSettings?.waitlistWindowMinutes ?? 15} min before battle start</p>
               </CardContent>
             </Card>
           </TabsContent>
@@ -1184,9 +1220,24 @@ export default function AdminKingsOfTheCourt() {
       <Dialog open={showLifePacksForm} onOpenChange={setShowLifePacksForm}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><ShoppingBag className="h-5 w-5 text-green-400" />Configure Life Packs</DialogTitle>
+            <DialogTitle className="flex items-center gap-2"><ShoppingBag className="h-5 w-5 text-green-400" />Edit KotC Settings</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            <p className="text-xs text-muted-foreground">These apply platform-wide, to every division — not just the one you're currently viewing.</p>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <Label>Max Roster Size</Label>
+                <Input type="number" value={maxRosterSizeInput} onChange={(e) => setMaxRosterSizeInput(Number(e.target.value))} className="mt-1" min={1} />
+              </div>
+              <div>
+                <Label>Grace Period (s)</Label>
+                <Input type="number" value={gracePeriodInput} onChange={(e) => setGracePeriodInput(Number(e.target.value))} className="mt-1" min={0} />
+              </div>
+              <div>
+                <Label>Lives to Register</Label>
+                <Input type="number" value={livesRequiredInput} onChange={(e) => setLivesRequiredInput(Number(e.target.value))} className="mt-1" min={0} />
+              </div>
+            </div>
             <div>
               <Label>Waitlist Lock Window (minutes before battle)</Label>
               <Input type="number" value={waitlistWindowInput} onChange={(e) => setWaitlistWindowInput(Number(e.target.value))} className="mt-1" min={0} max={120} />
@@ -1197,7 +1248,7 @@ export default function AdminKingsOfTheCourt() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowLifePacksForm(false)}>Cancel</Button>
             <Button onClick={() => saveLifePacks.mutate()} disabled={saveLifePacks.isPending}>
-              {saveLifePacks.isPending ? "Saving..." : "Save Life Packs"}
+              {saveLifePacks.isPending ? "Saving..." : "Save Settings"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1461,15 +1512,13 @@ export default function AdminKingsOfTheCourt() {
             <div>
               <Label>Courts</Label>
               {(() => {
-                const venueCourts = (courts as any[]).filter(
-                  (c) => String(c.venueId) === String((selectedSeason as any)?.venueId)
-                );
-                if (venueCourts.length === 0) {
-                  return <p className="text-xs text-muted-foreground mt-1 italic">No courts found for this season's venue.</p>;
+                const allCourts = courts as any[];
+                if (allCourts.length === 0) {
+                  return <p className="text-xs text-muted-foreground mt-1 italic">No courts found.</p>;
                 }
                 return (
                   <div className="flex flex-wrap gap-x-5 gap-y-2 mt-2">
-                    {venueCourts.map((court: any) => (
+                    {allCourts.map((court: any) => (
                       <label key={court.id} className="flex items-center gap-2 text-sm">
                         <input
                           type="checkbox"

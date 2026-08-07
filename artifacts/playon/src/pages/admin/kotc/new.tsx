@@ -1,12 +1,14 @@
 /**
- * KotC Season Creation Wizard — 6 steps
+ * KotC Division Creation Wizard — 5 steps
  *
- * Step 1: Basics         — name, sport, venue, gender bracket, age bracket, notes
- * Step 2: Match Rules    — win mode toggle, win target, time limit, grace period, team size
- * Step 3: Registration   — lives required, max teams/court, life pack config (advanced)
- * Step 4: Season Dates   — start / end datetime with end > start validation
- * Step 5: Battles        — add battle cards with court checkbox list
- * Step 6: Review         — full read-only summary + Save Draft / Publish
+ * Step 1: Basics         — name, sport, venue (UI-only, used to filter courts below), gender bracket, age bracket, notes
+ * Step 2: Match Rules    — win mode toggle, win target, time limit, team size
+ * Step 3: Division Dates — start / end datetime with end > start validation
+ * Step 4: Battles        — add battle cards with court checkbox list
+ * Step 5: Review         — full read-only summary + Save Draft / Publish
+ *
+ * Roster size, grace period, lives-to-register, waitlist window, and life pack pricing
+ * are platform-wide now (Admin KotC Settings), not per-division — see kings-of-the-court.tsx's Config tab.
  */
 
 import React, { useState, useCallback, useEffect } from "react";
@@ -19,13 +21,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { WizardShell } from "@/components/admin/WizardShell";
-import { LifePacksEditor } from "@/components/kotc/life-packs-editor";
 import { useDraftAutosave } from "@/hooks/use-draft-autosave";
-import { Plus, Trash2, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 
 const API = (import.meta.env.VITE_API_URL ?? "https://workspaceapi-server-production-3488.up.railway.app").replace(/\/$/, "") + "/api";
 
-const STEPS = ["Basics", "Match Rules", "Registration", "Dates", "Battles", "Review"];
+const STEPS = ["Basics", "Match Rules", "Dates", "Battles", "Review"];
 
 export const SPORTS = [
   { value: "basketball", label: "🏀 Basketball" },
@@ -57,16 +58,6 @@ export const KOTC_AGE_BRACKETS = [
   { value: "u12", label: "U12" },
 ];
 
-const DEFAULT_LIFE_PACKS = JSON.stringify(
-  [
-    { name: "Starter Pack", lives: 3, priceCents: 999 },
-    { name: "Pro Pack", lives: 7, priceCents: 1999 },
-    { name: "Elite Pack", lives: 15, priceCents: 3999 },
-  ],
-  null,
-  2,
-);
-
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface BattleEntry {
@@ -87,12 +78,7 @@ export interface WizardState {
   winMode: "points" | "time_limit";
   winTarget: string;
   timeLimitMinutes: string;
-  gracePeriodSeconds: string;
   teamSize: string;
-  maxRosterSize: string;
-  livesRequired: string;
-  maxTeamsPerCourt: string;
-  lifePacksJson: string;
   startsAt: string;
   endsAt: string;
   battles: BattleEntry[];
@@ -109,12 +95,7 @@ export function defaultWizardState(): WizardState {
     winMode: "points",
     winTarget: "7",
     timeLimitMinutes: "5",
-    gracePeriodSeconds: "60",
     teamSize: "4",
-    maxRosterSize: "",
-    livesRequired: "3",
-    maxTeamsPerCourt: "8",
-    lifePacksJson: DEFAULT_LIFE_PACKS,
     startsAt: "",
     endsAt: "",
     battles: [],
@@ -337,126 +318,26 @@ export function Step2MatchRules({
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label>Grace Period (seconds)</Label>
-          <Input
-            type="number"
-            min="0"
-            className="mt-1"
-            value={state.gracePeriodSeconds}
-            onChange={(e) => onChange({ gracePeriodSeconds: e.target.value })}
-          />
-          <p className="text-xs text-muted-foreground mt-1">
-            Seconds a late team has to show up before the battle is forfeited.
-          </p>
-        </div>
-        <div>
-          <Label>On-Court Format</Label>
-          <Input
-            type="number"
-            min="1"
-            className="mt-1"
-            value={state.teamSize}
-            onChange={(e) => onChange({ teamSize: e.target.value })}
-          />
-          <p className="text-xs text-muted-foreground mt-1">
-            Players per side actually on court — e.g. 3 for 3v3.
-          </p>
-        </div>
-      </div>
-
       <div>
-        <Label>Max Roster Size <span className="text-muted-foreground">(optional)</span></Label>
+        <Label>On-Court Format</Label>
         <Input
           type="number"
-          min={state.teamSize || 1}
+          min="1"
           className="mt-1"
-          placeholder={`Same as on-court format (${state.teamSize || 4})`}
-          value={state.maxRosterSize}
-          onChange={(e) => onChange({ maxRosterSize: e.target.value })}
+          value={state.teamSize}
+          onChange={(e) => onChange({ teamSize: e.target.value })}
         />
         <p className="text-xs text-muted-foreground mt-1">
-          Total players allowed on a team, including substitutes. Leave blank if there's no bench —
-          e.g. set On-Court Format to 3 and this to 5 for 3v3 with 2 subs.
+          Players per side actually on court — e.g. 3 for 3v3. Roster size, grace period,
+          lives-to-register, and life pack pricing are platform-wide now — configure them
+          from KotC Settings on the dashboard instead of per division.
         </p>
       </div>
     </div>
   );
 }
 
-// ─── Step 3 — Registration & Economy ─────────────────────────────────────────
-
-export function Step3Registration({
-  state,
-  onChange,
-}: {
-  state: WizardState;
-  onChange: (s: Partial<WizardState>) => void;
-}) {
-  const [showAdvanced, setShowAdvanced] = useState(false);
-
-  return (
-    <div className="space-y-5">
-      <p className="text-sm text-muted-foreground">
-        Control who can enter and how the life economy works for this season.
-      </p>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label>Lives Required to Register</Label>
-          <Input
-            type="number"
-            min="0"
-            className="mt-1"
-            value={state.livesRequired}
-            onChange={(e) => onChange({ livesRequired: e.target.value })}
-          />
-          <p className="text-xs text-muted-foreground mt-1">
-            Players must hold at least this many lives to register for the season.
-          </p>
-        </div>
-        <div>
-          <Label>Max Teams Per Court</Label>
-          <Input
-            type="number"
-            min="1"
-            className="mt-1"
-            value={state.maxTeamsPerCourt}
-            onChange={(e) => onChange({ maxTeamsPerCourt: e.target.value })}
-          />
-          <p className="text-xs text-muted-foreground mt-1">
-            Caps how many teams can queue at a single court at once.
-          </p>
-        </div>
-      </div>
-
-      <div className="border rounded-lg overflow-hidden">
-        <button
-          type="button"
-          className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium hover:bg-muted/50 transition-colors"
-          onClick={() => setShowAdvanced((v) => !v)}
-        >
-          <span>Advanced settings — Life Pack config</span>
-          {showAdvanced ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-        </button>
-        {showAdvanced && (
-          <div className="px-4 pb-4 pt-1 border-t">
-            <LifePacksEditor
-              value={state.lifePacksJson}
-              onChange={(json) => onChange({ lifePacksJson: json })}
-            />
-            <p className="text-xs text-muted-foreground mt-2">
-              Defines the life economy for this season. Leave as default unless you have specific requirements.
-            </p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ─── Step 4 — Season Dates ────────────────────────────────────────────────────
+// ─── Step 3 — Division Dates ──────────────────────────────────────────────────
 
 export function Step4Dates({
   state,
@@ -528,7 +409,7 @@ export function Step5Battles({
     : [];
 
   function addBattle() {
-    onChange({ battles: [...state.battles, defaultBattle(state.maxTeamsPerCourt)] });
+    onChange({ battles: [...state.battles, defaultBattle("8")] });
   }
 
   function removeBattle(i: number) {
@@ -757,17 +638,10 @@ export function Step6Review({
         {state.winMode === "time_limit" && (
           <ReviewRow label="Time Limit" value={`${state.timeLimitMinutes} min`} />
         )}
-        <ReviewRow label="Grace Period" value={`${state.gracePeriodSeconds}s`} />
         <ReviewRow label="On-Court Format" value={`${state.teamSize}v${state.teamSize}`} />
-        <ReviewRow label="Max Roster Size" value={state.maxRosterSize || "Same as on-court format"} />
       </ReviewSection>
 
-      <ReviewSection title="Registration & Economy">
-        <ReviewRow label="Lives Required" value={state.livesRequired} />
-        <ReviewRow label="Max Teams / Court" value={state.maxTeamsPerCourt} />
-      </ReviewSection>
-
-      <ReviewSection title="Season Dates">
+      <ReviewSection title="Division Dates">
         <ReviewRow
           label="Starts"
           value={state.startsAt ? new Date(state.startsAt).toLocaleString() : "—"}
@@ -885,10 +759,9 @@ export default function KotcNewPage() {
   const canProceed: Record<number, boolean> = {
     0: !!state.name.trim(),
     1: !!state.winTarget,
-    2: true,
-    3: !endInvalid,
+    2: !endInvalid,
+    3: true,
     4: true,
-    5: true,
   };
 
   async function handlePublish() {
@@ -896,42 +769,27 @@ export default function KotcNewPage() {
     try {
       const headers = await getHeaders();
 
-      let lifePacks: any;
-      try {
-        lifePacks = state.lifePacksJson.trim() ? JSON.parse(state.lifePacksJson) : [];
-      } catch {
-        toast({ title: "Invalid life pack JSON", variant: "destructive" });
-        setIsSaving(false);
-        return;
-      }
-
       const r = await fetch(`${API}/kotc/seasons`, {
         method: "POST",
         headers,
         body: JSON.stringify({
           name: state.name,
           sport: state.sport,
-          venueId: state.venueId ? Number(state.venueId) : null,
           genderBracket: state.genderBracket,
           ageBracket: state.ageBracket,
           teamSize: Number(state.teamSize),
-          maxRosterSize: state.maxRosterSize.trim() ? Number(state.maxRosterSize) : null,
           winCondition: state.winMode,
           winTarget: Number(state.winTarget),
           timeLimitMinutes: state.winMode === "time_limit" ? Number(state.timeLimitMinutes) : undefined,
-          gracePeriodSeconds: Number(state.gracePeriodSeconds),
-          livesRequired: Number(state.livesRequired),
-          maxTeamsPerCourt: Number(state.maxTeamsPerCourt),
           startsAt: state.startsAt || null,
           endsAt: state.endsAt || null,
           notes: state.notes || null,
-          lifePacks,
         }),
       });
 
       if (!r.ok) {
-        const err = await r.json().catch(() => ({ error: "Failed to create season" }));
-        throw new Error(err.error ?? "Failed to create season");
+        const err = await r.json().catch(() => ({ error: "Failed to create division" }));
+        throw new Error(err.error ?? "Failed to create division");
       }
 
       const season = await r.json();
@@ -943,6 +801,7 @@ export default function KotcNewPage() {
           headers,
           body: JSON.stringify({
             scheduledAt: battle.scheduledAt,
+            venueId: state.venueId ? Number(state.venueId) : null,
             courtIds: battle.courtIds.length > 0 ? battle.courtIds : undefined,
             maxTeamsPerCourt: Number(battle.maxTeamsPerCourt),
             durationMinutes: Number(battle.durationMinutes),
@@ -953,7 +812,7 @@ export default function KotcNewPage() {
 
       publishedRef.current = true;
       clearDraft();
-      toast({ title: "Season published!" });
+      toast({ title: "Division published!" });
       setLocation("/admin/kings-of-the-court");
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
@@ -976,7 +835,7 @@ export default function KotcNewPage() {
 
   return (
     <WizardShell
-      title="New KotC Season"
+      title="New KotC Division"
       backHref="/admin/kings-of-the-court"
       steps={STEPS}
       step={step}
@@ -996,12 +855,11 @@ export default function KotcNewPage() {
     >
       {step === 0 && <Step1Basics state={state} onChange={onChange} venues={venues} />}
       {step === 1 && <Step2MatchRules state={state} onChange={onChange} />}
-      {step === 2 && <Step3Registration state={state} onChange={onChange} />}
-      {step === 3 && <Step4Dates state={state} onChange={onChange} />}
-      {step === 4 && (
+      {step === 2 && <Step4Dates state={state} onChange={onChange} />}
+      {step === 3 && (
         <Step5Battles state={state} onChange={onChange} courts={courts} />
       )}
-      {step === 5 && (
+      {step === 4 && (
         <Step6Review state={state} venues={venues} courts={courts} isEditMode={false} />
       )}
     </WizardShell>
