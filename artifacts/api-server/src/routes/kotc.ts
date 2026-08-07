@@ -1314,6 +1314,7 @@ function getRulesCards(sport: string, season: Record<string, unknown>): Array<{
   const timeLimit = season.timeLimitMinutes || 5;
   const graceSeconds = season.gracePeriodSeconds || 60;
   const winCondition = season.winCondition || "points";
+  const livesRequired = Number(season.livesRequired) || 1;
 
   const winConditionBody = winCondition === "time_limit"
     ? `First team to score ${winTarget} points OR the team with more points when the ${timeLimit}-minute time limit expires wins. If time expires while tied, the team that has been on court longer loses.`
@@ -1336,7 +1337,7 @@ function getRulesCards(sport: string, season: Record<string, unknown>): Array<{
     },
     {
       title: "Lives System",
-      body: "The losing team loses 1 life. When a team hits 0 lives, their captain will be notified and a grace timer starts. Purchase lives before the timer expires to stay in the queue.",
+      body: `The losing team loses ${livesRequired} life${livesRequired === 1 ? "" : "s"}. When a team hits 0 lives, their captain will be notified and a grace timer starts. Purchase lives before the timer expires to stay in the queue.`,
       icon: "heart",
     },
     {

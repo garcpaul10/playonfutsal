@@ -530,6 +530,9 @@ export default function KotcTeamPage() {
                   </span>
                 )}
               </div>
+              {rules?.season?.name && (
+                <p className="text-sm text-muted-foreground mt-0.5">{rules.season.name}</p>
+              )}
               <div className="flex items-center gap-4 mt-1">
                 <div className="flex items-center gap-1.5">
                   <Heart className={`h-4 w-4 ${team.livesBalance <= 1 ? "text-red-400" : team.livesBalance <= 2 ? "text-amber-400" : "text-red-400"}`} />
